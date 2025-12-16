@@ -1,0 +1,408 @@
+{
+  "client": "Thunder Client",
+  "collectionName": "Kirana Backend API",
+  "dateExported": "2025-12-12",
+  "version": "1.2",
+  "folders": [
+    {
+      "name": "Authentication",
+      "requests": [
+        {
+          "name": "Health Check",
+          "method": "GET",
+          "url": "http://localhost:5000/api/health",
+          "headers": [],
+          "body": {}
+        },
+        {
+          "name": "Register User",
+          "method": "POST",
+          "url": "http://localhost:5000/api/auth/register",
+          "headers": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"username\": \"shopkeeper1\",\n  \"email\": \"shop@example.com\",\n  \"password\": \"test123\"\n}"
+          }
+        },
+        {
+          "name": "Login User",
+          "method": "POST",
+          "url": "http://localhost:5000/api/auth/login",
+          "headers": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"email\": \"shop@example.com\",\n  \"password\": \"test123\"\n}"
+          }
+        },
+        {
+          "name": "Get Current User",
+          "method": "GET",
+          "url": "http://localhost:5000/api/auth/me",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Verify Token",
+          "method": "POST",
+          "url": "http://localhost:5000/api/auth/verify-token",
+          "headers": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"token\": \"YOUR_TOKEN_HERE\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Suppliers",
+      "requests": [
+        {
+          "name": "Create Supplier",
+          "method": "POST",
+          "url": "http://localhost:5000/api/suppliers",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"name\": \"Sharma Trading Co.\",\n  \"phone\": \"9876543210\",\n  \"address\": \"Chandni Chowk, Delhi\"\n}"
+          }
+        },
+        {
+          "name": "Get All Suppliers",
+          "method": "GET",
+          "url": "http://localhost:5000/api/suppliers",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get All Suppliers with Search",
+          "method": "GET",
+          "url": "http://localhost:5000/api/suppliers?search=sharma&sortBy=totalSpend&order=desc",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Single Supplier",
+          "method": "GET",
+          "url": "http://localhost:5000/api/suppliers/SUPPLIER_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Update Supplier",
+          "method": "PUT",
+          "url": "http://localhost:5000/api/suppliers/SUPPLIER_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"name\": \"Sharma Trading Co. Updated\",\n  \"phone\": \"9876543211\"\n}"
+          }
+        },
+        {
+          "name": "Delete Supplier",
+          "method": "DELETE",
+          "url": "http://localhost:5000/api/suppliers/SUPPLIER_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        }
+      ]
+    },
+    {
+      "name": "Bills",
+      "requests": [
+        {
+          "name": "Create Bill (Unpaid)",
+          "method": "POST",
+          "url": "http://localhost:5000/api/bills",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"supplierId\": \"SUPPLIER_ID_HERE\",\n  \"amount\": 12500,\n  \"description\": \"Rice, Dal, Sugar supplies\",\n  \"isPaid\": false,\n  \"dueDate\": \"2025-12-31\",\n  \"items\": [\n    {\n      \"name\": \"Basmati Rice\",\n      \"quantity\": 50,\n      \"price\": 150,\n      \"unit\": \"kg\"\n    },\n    {\n      \"name\": \"Toor Dal\",\n      \"quantity\": 30,\n      \"price\": 120,\n      \"unit\": \"kg\"\n    }\n  ]\n}"
+          }
+        },
+        {
+          "name": "Create Bill (Paid)",
+          "method": "POST",
+          "url": "http://localhost:5000/api/bills",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"supplierId\": \"SUPPLIER_ID_HERE\",\n  \"amount\": 8500,\n  \"description\": \"Cooking oil and spices\",\n  \"isPaid\": true\n}"
+          }
+        },
+        {
+          "name": "Get All Bills",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Bills - Unpaid Only",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills?isPaid=false&sortBy=dueDate&order=asc",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Bills by Supplier",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills?supplierId=SUPPLIER_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Single Bill",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills/BILL_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Mark Bill as Paid",
+          "method": "PUT",
+          "url": "http://localhost:5000/api/bills/BILL_ID_HERE/pay",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Update Bill",
+          "method": "PUT",
+          "url": "http://localhost:5000/api/bills/BILL_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"description\": \"Updated description\",\n  \"dueDate\": \"2025-12-31\"\n}"
+          }
+        },
+        {
+          "name": "Delete Bill",
+          "method": "DELETE",
+          "url": "http://localhost:5000/api/bills/BILL_ID_HERE",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "requests": [
+        {
+          "name": "Get Dashboard Stats",
+          "method": "GET",
+          "url": "http://localhost:5000/api/dashboard/stats",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "requests": [
+        {
+          "name": "Get Analytics Charts",
+          "method": "GET",
+          "url": "http://localhost:5000/api/analytics/charts",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Analytics Charts (3 Months)",
+          "method": "GET",
+          "url": "http://localhost:5000/api/analytics/charts?months=3",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Analytics Summary",
+          "method": "GET",
+          "url": "http://localhost:5000/api/analytics/summary",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Due Bills",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills/due",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Due Bills (14 Days)",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills/due?days=14",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Upcoming Bills",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills/upcoming",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        },
+        {
+          "name": "Get Upcoming Bills (Custom Range)",
+          "method": "GET",
+          "url": "http://localhost:5000/api/bills/upcoming?startDays=7&endDays=30",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_TOKEN_HERE"
+            }
+          ],
+          "body": {}
+        }
+      ]
+    }
+  ]
+}
