@@ -140,7 +140,7 @@ cd ..
 2. **Configure Environment**
 ```bash
 # Create backend/.env
-MONGODB_URI=mongodb+srv://vineetvardhan07_db_user@cluster0.p0uhjmf.mongodb.net/
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/digibill?retryWrites=true&w=majority
 JWT_SECRET=your-secret-key-here
 PORT=5000
 CLIENT_URL=http://localhost:5173

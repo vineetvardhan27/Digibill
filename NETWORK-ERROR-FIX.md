@@ -175,7 +175,7 @@ const API_BASE_URL = 'http://localhost:5000/api';
 If you see "MongoDB connection failed":
 ```bash
 # Check backend/.env
-MONGODB_URI=mongodb+srv://vineetvardhan07_db_user:sample2710@cluster0.p0uhjmf.mongodb.net/?appName=Cluster0
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/digibill?retryWrites=true&w=majority
 ```
 
 ### Solution 5: Port Conflicts
