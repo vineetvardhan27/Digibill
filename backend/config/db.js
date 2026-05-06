@@ -8,6 +8,23 @@ const connectDB = async () => {
     });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+
+    // Clean up legacy indexes that no longer match the current user schema.
+    // Old databases may still have a unique username index that breaks signup
+    // because the app no longer stores a username field.
+    try {
+      const usersCollection = mongoose.connection.db.collection('users');
+      const indexes = await usersCollection.indexes();
+      const usernameIndex = indexes.find((index) => index.name === 'username_1');
+
+      if (usernameIndex) {
+        await usersCollection.dropIndex('username_1');
+        console.log('🧹 Removed stale users.username_1 index');
+      }
+    } catch (indexError) {
+      // Ignore if the index does not exist or cannot be removed yet.
+      console.warn('⚠️  Could not clean up legacy username index:', indexError.message);
+    }
     
     // Handle connection events
     mongoose.connection.on('error', (err) => {

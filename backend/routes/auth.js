@@ -34,7 +34,7 @@ router.post(
       .isLength({ min: 6 })
       .withMessage('Password must be at least 6 characters long'),
     body('phone')
-      .optional()
+      .optional({ checkFalsy: true })
       .trim()
       .isLength({ min: 10, max: 15 })
       .withMessage('Phone number must be between 10 and 15 characters')
@@ -229,7 +229,7 @@ router.post('/verify-token', async (req, res) => {
         data: {
           user: {
             id: user._id,
-            username: user.username,
+            name: user.name,
             email: user.email
           }
         }
