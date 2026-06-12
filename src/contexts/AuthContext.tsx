@@ -8,6 +8,8 @@ interface User {
   name: string;
   email: string;
   phone?: string;
+  shopName?: string;
+  shopAddress?: string;
   createdAt?: string;
 }
 
@@ -17,6 +19,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
+  updateUser: (user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -123,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     login,
     register,
+    updateUser: setUser,
     logout,
     isAuthenticated: !!token && !!user,
   };

@@ -26,6 +26,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
       sparse: true
     },
+    shopName: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Shop name cannot exceed 100 characters']
+    },
+    shopAddress: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Shop address cannot exceed 300 characters']
+    },
     passwordHash: {
       type: String,
       required: [true, 'Password is required'],

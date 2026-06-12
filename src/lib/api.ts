@@ -62,6 +62,11 @@ export const authAPI = {
     const response = await apiClient.post('/auth/verify-token');
     return response.data;
   },
+
+  updateProfile: async (data: { name?: string; phone?: string; shopName?: string; shopAddress?: string }) => {
+    const response = await apiClient.put('/auth/profile', data);
+    return response.data;
+  },
 };
 
 // ==================== SUPPLIER API ====================

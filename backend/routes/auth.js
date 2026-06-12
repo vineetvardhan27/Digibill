@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import authMiddleware from '../middleware/authMiddleware.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ const generateToken = (userId) => {
 // @access  Public
 router.post(
   '/register',
+  authLimiter,
   [
     body('name')
       .trim()
@@ -106,6 +108,7 @@ router.post(
 // @access  Public
 router.post(
   '/login',
+  authLimiter,
   [
     body('email')
       .trim()
@@ -245,6 +248,55 @@ router.post('/verify-token', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during token verification'
+    });
+  }
+});
+
+// @route   PUT /api/auth/profile
+// @desc    Update user profile and shop details
+// @access  Private
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { name, phone, shopName, shopAddress } = req.body;
+    
+    // Find user by ID from the token
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Update fields if provided
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (shopName !== undefined) user.shopName = shopName;
+    if (shopAddress !== undefined) user.shopAddress = shopAddress;
+    
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          shopName: user.shopName,
+          shopAddress: user.shopAddress,
+          createdAt: user.createdAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during profile update'
     });
   }
 });

@@ -2,9 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
+import { globalLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import analyticsRoutes from './routes/analytics.js';
+import ocrRoutes from './routes/ocrRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -23,10 +25,14 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Apply global rate limiter to all routes
+app.use(globalLimiter);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api', analyticsRoutes);
+app.use('/api/ocr', ocrRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

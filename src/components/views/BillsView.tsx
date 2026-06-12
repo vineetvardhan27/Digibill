@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Search, Filter, Camera, FileText, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Search, Filter, Camera, FileText, Loader2, Sparkles } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,8 @@ import { Bill, Supplier } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { billAPI, supplierAPI } from "@/lib/api";
+import { useOCRScan } from "@/hooks/useOCRScan";
+import { BillScanUploader } from "@/components/OCR/BillScanUploader";
 
 export function BillsView() {
   const [bills, setBills] = useState<Bill[]>([]);
@@ -35,6 +37,7 @@ export function BillsView() {
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [newBill, setNewBill] = useState({
     supplierId: "",
     amount: "",
@@ -42,11 +45,90 @@ export function BillsView() {
     dueDate: "",
   });
 
+  // Track which fields the user has manually edited (so OCR doesn't overwrite them)
+  const userEditedFields = useRef<Set<string>>(new Set());
+
+  // OCR scan hook
+  const {
+    isScanning,
+    previewUrl,
+    scanResult,
+    scanBill: performScan,
+    cleanup: cleanupOCR,
+  } = useOCRScan();
+
   // Fetch bills and suppliers on mount
   useEffect(() => {
     fetchBills();
     fetchSuppliers();
   }, []);
+
+  // ─── Auto-populate form when scan completes ────────────────────────────────
+  useEffect(() => {
+    if (!scanResult) return;
+
+    const updates: Partial<typeof newBill> = {};
+
+    // Auto-populate amount (if not manually edited and extracted value is non-null)
+    if (scanResult.totalAmount !== null && !userEditedFields.current.has('amount')) {
+      updates.amount = String(scanResult.totalAmount);
+    }
+
+    // Auto-populate due date
+    if (scanResult.dueDate && !userEditedFields.current.has('dueDate')) {
+      updates.dueDate = scanResult.dueDate;
+    }
+
+    // Auto-populate description
+    if (scanResult.description && !userEditedFields.current.has('description')) {
+      updates.description = scanResult.description;
+    }
+
+    // Apply updates
+    if (Object.keys(updates).length > 0) {
+      setNewBill(prev => ({ ...prev, ...updates }));
+    }
+
+    // ─── Fuzzy match supplier name ───────────────────────────────────
+    if (scanResult.supplierName && !userEditedFields.current.has('supplierId')) {
+      const scannedName = scanResult.supplierName.toLowerCase().trim();
+
+      // Try exact match first
+      let matched = suppliers.find(
+        s => s.name.toLowerCase().trim() === scannedName
+      );
+
+      // Try contains match
+      if (!matched) {
+        matched = suppliers.find(
+          s =>
+            s.name.toLowerCase().includes(scannedName) ||
+            scannedName.includes(s.name.toLowerCase())
+        );
+      }
+
+      // Try word overlap fuzzy match
+      if (!matched) {
+        const scannedWords = scannedName.split(/\s+/);
+        matched = suppliers.find(s => {
+          const supplierWords = s.name.toLowerCase().split(/\s+/);
+          const overlap = scannedWords.filter(w =>
+            supplierWords.some(sw => sw.includes(w) || w.includes(sw))
+          );
+          return overlap.length >= Math.min(2, scannedWords.length);
+        });
+      }
+
+      if (matched) {
+        setNewBill(prev => ({ ...prev, supplierId: matched._id || matched.id || '' }));
+        toast.success(`Supplier matched: ${matched.name}`);
+      } else {
+        toast.info(`Supplier "${scanResult.supplierName}" not found`, {
+          description: 'Please select a supplier from the list or add them first.',
+        });
+      }
+    }
+  }, [scanResult, suppliers]);
 
   const fetchBills = async () => {
     try {
@@ -55,12 +137,10 @@ export function BillsView() {
         sortBy: "date",
         order: "desc",
       });
-      // Ensure bills is always an array
       setBills(Array.isArray(response.data.bills) ? response.data.bills : []);
     } catch (error: any) {
       console.error('Fetch bills error:', error);
       toast.error(error.message || "Failed to fetch bills");
-      // Set empty array on error to prevent crashes
       setBills([]);
     } finally {
       setLoading(false);
@@ -71,18 +151,15 @@ export function BillsView() {
     try {
       const response = await supplierAPI.getSuppliers();
       console.log("Fetched suppliers:", response.data.suppliers);
-      // Ensure suppliers is always an array
       setSuppliers(Array.isArray(response.data.suppliers) ? response.data.suppliers : []);
     } catch (error: any) {
       console.error('Fetch suppliers error:', error);
       toast.error(error.message || "Failed to fetch suppliers");
-      // Set empty array on error to prevent crashes
       setSuppliers([]);
     }
   };
 
   const filteredBills = bills.filter((bill) => {
-    // Safely get supplier name - handle both populated (supplierId object) and unpopulated (string)
     const supplierName = typeof bill.supplierId === 'object' && bill.supplierId 
       ? (bill.supplierId as any).name 
       : bill.supplier?.name || '';
@@ -99,32 +176,24 @@ export function BillsView() {
   });
 
   const handleAddBill = async () => {
-    // Debug current state
     console.log("Form submission - Current newBill state:", newBill);
-    console.log("Supplier ID check:", newBill.supplierId, "Type:", typeof newBill.supplierId);
     
-    // Validation
     if (!newBill.supplierId || !newBill.supplierId.trim()) {
-      console.error("Validation failed: No supplier selected");
       toast.error("Please select a supplier");
       return;
     }
 
     if (!newBill.amount || !newBill.amount.trim()) {
-      console.error("Validation failed: No amount entered");
       toast.error("Please enter an amount");
       return;
     }
 
     const amountValue = parseFloat(newBill.amount);
     if (isNaN(amountValue) || amountValue <= 0) {
-      console.error("Validation failed: Invalid amount", amountValue);
       toast.error("Please enter a valid amount greater than 0");
       return;
     }
 
-    console.log("Validation passed, submitting bill...");
-    
     try {
       setSubmitting(true);
       const response = await billAPI.createBill({
@@ -137,18 +206,17 @@ export function BillsView() {
 
       console.log('Bill created successfully:', response.data.bill);
       
-      // Add new bill to the list - ensure bills array is valid
       setBills((prevBills) => {
         const newBills = Array.isArray(prevBills) ? prevBills : [];
         return [response.data.bill, ...newBills];
       });
       
-      // Reset form
       setNewBill({ supplierId: "", amount: "", description: "", dueDate: "" });
+      userEditedFields.current.clear();
+      cleanupOCR();
       setIsDialogOpen(false);
       toast.success(response.message || "Bill added successfully!");
       
-      // Refresh bills list to ensure data consistency
       setTimeout(() => fetchBills(), 500);
     } catch (error: any) {
       console.error("Bill creation error:", error);
@@ -160,10 +228,16 @@ export function BillsView() {
 
   const handleDialogChange = (open: boolean) => {
     setIsDialogOpen(open);
-    // Reset form when dialog closes
     if (!open) {
       setNewBill({ supplierId: "", amount: "", description: "", dueDate: "" });
+      userEditedFields.current.clear();
+      cleanupOCR();
     }
+  };
+
+  // Handle file selection from the scanner
+  const handleScanFile = async (file: File) => {
+    await performScan(file);
   };
 
   const handleMarkAsPaid = async (billId: string) => {
@@ -194,18 +268,38 @@ export function BillsView() {
                 Add Bill
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle className="text-xl">Add New Bill</DialogTitle>
               </DialogHeader>
               <div className="space-y-5 pt-4">
+                {/* ─── OCR Scanner ─────────────────────────────────────── */}
+                <BillScanUploader
+                  isScanning={isScanning}
+                  previewUrl={previewUrl}
+                  onFileSelect={handleScanFile}
+                  onClear={cleanupOCR}
+                  scanComplete={!!scanResult}
+                  confidence={scanResult?.confidence}
+                  disabled={submitting}
+                />
+
+                {/* ─── Divider ────────────────────────────────────────── */}
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 h-px bg-border/60" />
+                  <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap">
+                    {scanResult ? 'Review & edit below' : 'or fill manually'}
+                  </span>
+                  <div className="flex-1 h-px bg-border/60" />
+                </div>
+
+                {/* ─── Manual Form Fields ─────────────────────────────── */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Supplier *</Label>
                   <Select
                     value={newBill.supplierId}
                     onValueChange={(value) => {
-                      console.log("Selected supplier ID:", value);
-                      console.log("Available suppliers:", suppliers);
+                      userEditedFields.current.add('supplierId');
                       setNewBill({ ...newBill, supplierId: value });
                     }}
                   >
@@ -244,10 +338,14 @@ export function BillsView() {
                     type="number"
                     placeholder="Enter amount"
                     value={newBill.amount}
-                    onChange={(e) =>
-                      setNewBill({ ...newBill, amount: e.target.value })
-                    }
-                    className="h-11"
+                    onChange={(e) => {
+                      userEditedFields.current.add('amount');
+                      setNewBill({ ...newBill, amount: e.target.value });
+                    }}
+                    className={cn(
+                      "h-11",
+                      scanResult?.totalAmount !== null && scanResult?.totalAmount !== undefined && !userEditedFields.current.has('amount') && "ring-1 ring-primary/30 bg-primary/5"
+                    )}
                     min="0.01"
                     step="0.01"
                     required
@@ -259,10 +357,14 @@ export function BillsView() {
                     id="dueDate"
                     type="date"
                     value={newBill.dueDate}
-                    onChange={(e) =>
-                      setNewBill({ ...newBill, dueDate: e.target.value })
-                    }
-                    className="h-11"
+                    onChange={(e) => {
+                      userEditedFields.current.add('dueDate');
+                      setNewBill({ ...newBill, dueDate: e.target.value });
+                    }}
+                    className={cn(
+                      "h-11",
+                      scanResult?.dueDate && !userEditedFields.current.has('dueDate') && "ring-1 ring-primary/30 bg-primary/5"
+                    )}
                   />
                 </div>
                 <div className="space-y-2">
@@ -271,16 +373,20 @@ export function BillsView() {
                     id="description"
                     placeholder="E.g., Rice, Dal supplies"
                     value={newBill.description}
-                    onChange={(e) =>
-                      setNewBill({ ...newBill, description: e.target.value })
-                    }
-                    className="h-11"
+                    onChange={(e) => {
+                      userEditedFields.current.add('description');
+                      setNewBill({ ...newBill, description: e.target.value });
+                    }}
+                    className={cn(
+                      "h-11",
+                      scanResult?.description && !userEditedFields.current.has('description') && "ring-1 ring-primary/30 bg-primary/5"
+                    )}
                   />
                 </div>
                 <Button 
                   className="w-full h-11 text-base" 
                   onClick={handleAddBill}
-                  disabled={submitting}
+                  disabled={submitting || isScanning}
                 >
                   {submitting ? (
                     <>
@@ -334,7 +440,8 @@ export function BillsView() {
             {filteredBills.map((bill) => (
               <Card
                 key={bill._id || bill.id}
-                className="p-6 hover:shadow-xl transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm"
+                className="p-6 hover:shadow-xl transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm cursor-pointer"
+                onClick={() => setSelectedBill(bill)}
               >
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
@@ -382,7 +489,10 @@ export function BillsView() {
                       <Button
                         variant="default"
                         className="shadow-lg"
-                        onClick={() => handleMarkAsPaid(bill._id || bill.id || '')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkAsPaid(bill._id || bill.id || '');
+                        }}
                       >
                         Mark Paid
                       </Button>
@@ -406,6 +516,96 @@ export function BillsView() {
             )}
           </div>
         )}
+
+        {/* Bill Details Dialog */}
+        <Dialog open={!!selectedBill} onOpenChange={(open) => !open && setSelectedBill(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Bill Details
+              </DialogTitle>
+            </DialogHeader>
+
+            {selectedBill && (
+              <div className="space-y-6 pt-4">
+                {/* Header info */}
+                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-xl border border-border/50">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Supplier</p>
+                    <p className="font-semibold text-lg">
+                      {(typeof selectedBill.supplierId === 'object' && selectedBill.supplierId 
+                        ? (selectedBill.supplierId as any).name 
+                        : selectedBill.supplier?.name) || "Unknown Supplier"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Total Amount</p>
+                    <p className="font-bold text-2xl text-primary">{formatCurrency(selectedBill.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Bill Date</p>
+                    <p className="font-medium">{formatDate(selectedBill.date)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <div className="mt-1 flex justify-end">
+                      {selectedBill.isPaid ? (
+                        <Badge className="bg-success">Paid</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-warning border-warning">Pending</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedBill.description && (
+                  <div>
+                    <p className="text-sm font-semibold mb-1">Description</p>
+                    <p className="text-sm text-muted-foreground bg-muted/20 p-3 rounded-lg border border-border/30">
+                      {selectedBill.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Items List */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Line Items</h4>
+                  {(!selectedBill.items || selectedBill.items.length === 0) ? (
+                    <div className="text-center py-8 bg-muted/20 rounded-xl border border-dashed border-border/50">
+                      <p className="text-sm text-muted-foreground">No line items recorded for this bill.</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-border/50 overflow-hidden">
+                      <div className="grid grid-cols-12 gap-2 bg-muted/50 p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <div className="col-span-6">Item</div>
+                        <div className="col-span-2 text-right">Qty</div>
+                        <div className="col-span-2 text-right">Price</div>
+                        <div className="col-span-2 text-right">Total</div>
+                      </div>
+                      <div className="divide-y divide-border/50">
+                        {selectedBill.items.map((item, idx) => (
+                          <div key={idx} className="grid grid-cols-12 gap-2 p-3 text-sm items-center hover:bg-muted/20 transition-colors">
+                            <div className="col-span-6 font-medium">{item.name}</div>
+                            <div className="col-span-2 text-right">{item.quantity} {item.unit !== 'unit' ? item.unit : ''}</div>
+                            <div className="col-span-2 text-right">{formatCurrency(item.price)}</div>
+                            <div className="col-span-2 text-right font-medium">{formatCurrency(item.quantity * item.price)}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-muted/30 p-3 border-t border-border/50 flex justify-between items-center">
+                        <span className="text-sm font-semibold text-muted-foreground">Items Subtotal</span>
+                        <span className="font-bold">
+                          {formatCurrency(selectedBill.items.reduce((sum, item) => sum + (item.quantity * item.price), 0))}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
