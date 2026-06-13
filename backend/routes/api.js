@@ -146,6 +146,48 @@ router.get('/suppliers', async (req, res) => {
   }
 });
 
+// @route   GET /api/suppliers/health-summary
+// @desc    Get health scores for ALL suppliers of current user, sorted worst-first
+// @access  Private
+router.get('/suppliers/health-summary', async (req, res) => {
+  try {
+    const { calculateHealthScore } = await import('../utils/healthScore.js');
+
+    const suppliers = await Supplier.find({
+      createdBy: req.user._id,
+      isDeleted: { $ne: true }
+    }).lean();
+
+    const summary = [];
+
+    for (const supplier of suppliers) {
+      const bills = await Bill.find({ supplierId: supplier._id }).lean();
+      const { score, grade } = calculateHealthScore(bills);
+      summary.push({
+        supplierId: supplier._id,
+        supplierName: supplier.name,
+        score,
+        grade
+      });
+    }
+
+    // Sort by score ascending (worst first)
+    summary.sort((a, b) => a.score - b.score);
+
+    res.status(200).json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    console.error('Health summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while computing health summary',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // @route   GET /api/suppliers/:id
 // @desc    Get a single supplier by ID
 // @access  Private
@@ -175,6 +217,45 @@ router.get('/suppliers/:id', async (req, res) => {
       message: 'Server error while fetching supplier',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// @route   POST /api/suppliers/:id/invite
+// @desc    Send an invitation to a supplier
+// @access  Private
+router.post('/suppliers/:id/invite', async (req, res, next) => {
+  try {
+    const supplier = await Supplier.findOne({
+      _id: req.params.id,
+      createdBy: req.user._id,
+      isDeleted: { $ne: true }
+    });
+
+    if (!supplier) {
+      return res.status(404).json({ success: false, message: 'Supplier not found' });
+    }
+
+    if (!supplier.portalEmail) {
+      return res.status(400).json({ success: false, message: 'Supplier has no portal email configured' });
+    }
+
+    if (supplier.inviteStatus === 'active') {
+      return res.status(400).json({ success: false, message: 'Supplier already has an active account' });
+    }
+
+    if (supplier.inviteStatus === 'invited' && supplier.inviteTokenExpiry > Date.now()) {
+      return res.status(400).json({ success: false, message: 'Invite already sent and still valid' });
+    }
+
+    const { sendSupplierInvite } = await import('../services/inviteService.js');
+    await sendSupplierInvite(supplier, req.user);
+
+    res.status(200).json({
+      success: true,
+      message: `Invitation sent to ${supplier.portalEmail}`
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -344,6 +425,50 @@ router.delete('/suppliers/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while deleting supplier',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ==================== SUPPLIER HEALTH SCORE ROUTES ====================
+
+
+// @route   GET /api/suppliers/:id/health
+// @desc    Get detailed health score for a single supplier
+// @access  Private
+router.get('/suppliers/:id/health', async (req, res) => {
+  try {
+    const { calculateHealthScore } = await import('../utils/healthScore.js');
+
+    const supplier = await Supplier.findOne({
+      _id: req.params.id,
+      createdBy: req.user._id,
+      isDeleted: { $ne: true }
+    });
+
+    if (!supplier) {
+      return res.status(404).json({
+        success: false,
+        message: 'Supplier not found'
+      });
+    }
+
+    const bills = await Bill.find({ supplierId: supplier._id }).lean();
+    const healthScore = calculateHealthScore(bills);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        supplierId: supplier._id,
+        supplierName: supplier.name,
+        ...healthScore
+      }
+    });
+  } catch (error) {
+    console.error('Health score error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while computing health score',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -887,6 +1012,58 @@ router.delete('/bills/:id', async (req, res) => {
       message: 'Server error while deleting bill',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// @route   GET /api/bills/disputes
+// @desc    Get all disputes for the owner's bills
+// @access  Private
+router.get('/bills/disputes', async (req, res) => {
+  try {
+    const { status = 'open' } = req.query;
+    
+    // Lazy load the model to avoid circular/early imports if any
+    const BillDispute = (await import('../models/BillDispute.js')).default;
+    
+    const disputes = await BillDispute.find({ ownerId: req.user._id, status })
+      .populate('billId', 'amount description')
+      .populate('supplierId', 'name portalEmail')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, data: disputes });
+  } catch (error) {
+    console.error('Get disputes error:', error);
+    res.status(500).json({ success: false, message: 'Server error while fetching disputes' });
+  }
+});
+
+// @route   PATCH /api/bills/disputes/:disputeId
+// @desc    Respond to a dispute
+// @access  Private
+router.patch('/bills/disputes/:disputeId', async (req, res) => {
+  try {
+    const { status, ownerNote } = req.body;
+    
+    if (!['resolved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const BillDispute = (await import('../models/BillDispute.js')).default;
+
+    const dispute = await BillDispute.findOneAndUpdate(
+      { _id: req.params.disputeId, ownerId: req.user._id },
+      { status, ownerNote: ownerNote ? ownerNote.substring(0, 500) : undefined },
+      { new: true }
+    );
+
+    if (!dispute) {
+      return res.status(404).json({ success: false, message: 'Dispute not found' });
+    }
+
+    res.status(200).json({ success: true, data: dispute });
+  } catch (error) {
+    console.error('Update dispute error:', error);
+    res.status(500).json({ success: false, message: 'Server error while updating dispute' });
   }
 });
 

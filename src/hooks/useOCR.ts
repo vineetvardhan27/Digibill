@@ -27,12 +27,17 @@ function groqResultToParsedData(groqResult: GroqOCRResult): ParsedBillData {
     supplierAddress: groqResult.supplierAddress,
     gstNumber: groqResult.supplierGST,
     items: groqResult.items.map(item => ({
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      unit: item.unit,
+      description: item.description || '',
+      quantity: item.quantity || 1,
+      unitPrice: item.unitPrice || 0,
+      hsnCode: item.hsnCode || '',
+      gstRate: (item.gstRate || 0) as any,
+      gstType: (item.gstType || 'CGST_SGST') as any,
     })),
-    subtotal: null,
+    subtotal: groqResult.subtotal,
+    totalCGST: groqResult.totalCGST,
+    totalSGST: groqResult.totalSGST,
+    totalIGST: groqResult.totalIGST,
     tax: null,
     totalAmount: groqResult.totalAmount,
   };
@@ -241,7 +246,7 @@ export function useOCR(): UseOCRReturn {
       if (!prev) return prev;
       return {
         ...prev,
-        items: [...prev.items, { name: '', quantity: 1, price: 0, unit: 'unit' }],
+        items: [...prev.items, { description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0 as any, gstType: 'CGST_SGST' as any }],
       };
     });
   }, []);
@@ -286,7 +291,7 @@ export function useOCR(): UseOCRReturn {
           ? `Invoice #${editableData.invoiceNumber}`
           : 'OCR Scanned Bill',
         items: editableData.items.filter(
-          item => item.name && item.quantity > 0 && item.price > 0
+          item => item.description && item.quantity > 0 && item.unitPrice >= 0
         ),
       };
 

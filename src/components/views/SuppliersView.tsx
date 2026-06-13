@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Phone, MapPin, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { Plus, Search, Phone, MapPin, ChevronRight, Loader2, Trash2, HeartPulse, Mail, Clock, UserCheck } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/mockData";
 import { Supplier } from "@/types";
+import type { HealthSummaryItem } from "@/types/health";
 import { toast } from "sonner";
 import { supplierAPI } from "@/lib/api";
+import apiClient from "@/lib/api";
+import { SupplierHealthDialog, HealthGradeBadge } from "@/components/views/SupplierHealthDialog";
 
 export function SuppliersView() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -37,6 +40,13 @@ export function SuppliersView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [supplierToInvite, setSupplierToInvite] = useState<Supplier | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [healthMap, setHealthMap] = useState<Record<string, HealthSummaryItem>>({});
+  const [healthDialogOpen, setHealthDialogOpen] = useState(false);
+  const [healthSupplierId, setHealthSupplierId] = useState<string | null>(null);
+  const [healthSupplierName, setHealthSupplierName] = useState("");
   const [newSupplier, setNewSupplier] = useState({
     name: "",
     phone: "",
@@ -48,7 +58,30 @@ export function SuppliersView() {
   // Fetch suppliers on mount
   useEffect(() => {
     fetchSuppliers();
+    fetchHealthSummary();
   }, []);
+
+  const fetchHealthSummary = async () => {
+    try {
+      const response = await apiClient.get('/suppliers/health-summary');
+      const map: Record<string, HealthSummaryItem> = {};
+      for (const item of response.data.data) {
+        map[item.supplierId] = item;
+      }
+      setHealthMap(map);
+    } catch {
+      // Health summary is non-critical — silently ignore errors
+    }
+  };
+
+  const openHealthDialog = (supplier: Supplier, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = supplier._id || supplier.id;
+    if (!id) return;
+    setHealthSupplierId(id);
+    setHealthSupplierName(supplier.name);
+    setHealthDialogOpen(true);
+  };
 
   const fetchSuppliers = async () => {
     try {
@@ -140,6 +173,37 @@ export function SuppliersView() {
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setSupplierToDelete(null);
+  };
+
+  const handleInviteClick = (supplier: Supplier, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!supplier.portalEmail && !supplier.email) {
+      toast.error("Supplier needs an email address to be invited.");
+      return;
+    }
+    setSupplierToInvite(supplier);
+    setInviteDialogOpen(true);
+  };
+
+  const handleInviteConfirm = async () => {
+    if (!supplierToInvite) return;
+    try {
+      setInviting(true);
+      const supplierId = supplierToInvite._id || supplierToInvite.id;
+      if (!supplierId) throw new Error("Invalid ID");
+      
+      const res = await supplierAPI.inviteSupplier(supplierId);
+      toast.success(res.message || `Invitation sent to ${supplierToInvite.portalEmail || supplierToInvite.email}`);
+      
+      // Update local state
+      setSuppliers(suppliers.map(s => (s._id || s.id) === supplierId ? { ...s, inviteStatus: 'invited' } : s));
+      setInviteDialogOpen(false);
+      setSupplierToInvite(null);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send invitation");
+    } finally {
+      setInviting(false);
+    }
   };
 
   return (
@@ -268,8 +332,11 @@ export function SuppliersView() {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-lg text-foreground truncate">
+                      <h3 className="font-bold text-lg text-foreground truncate flex items-center gap-2">
                         {supplier.name}
+                        {healthMap[supplier._id] && (
+                          <HealthGradeBadge grade={healthMap[supplier._id].grade} />
+                        )}
                       </h3>
                       {supplier.pendingAmount > 0 && (
                         <Badge variant="destructive" className="mt-2">
@@ -277,15 +344,41 @@ export function SuppliersView() {
                         </Badge>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleDeleteClick(supplier, e)}
-                      title="Delete supplier"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {supplier.inviteStatus === 'active' ? (
+                        <Badge className="bg-success hover:bg-success/90 shrink-0 gap-1 h-8 px-2 flex items-center">
+                          <UserCheck className="h-3.5 w-3.5" /> Active
+                        </Badge>
+                      ) : supplier.inviteStatus === 'invited' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="h-8 shrink-0 text-muted-foreground border-border/50 bg-muted/20"
+                          title="Awaiting acceptance"
+                        >
+                          <Clock className="h-4 w-4 mr-1.5" /> Invited
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 shrink-0 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-colors"
+                          onClick={(e) => handleInviteClick(supplier, e)}
+                        >
+                          <Mail className="h-4 w-4 mr-1.5" /> Invite
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleDeleteClick(supplier, e)}
+                        title="Delete supplier"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -315,6 +408,15 @@ export function SuppliersView() {
                       <p className="text-xl font-bold text-foreground mt-1">{supplier.totalBills}</p>
                     </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full mt-3 gap-2 text-muted-foreground hover:text-primary"
+                    onClick={(e) => openHealthDialog(supplier, e)}
+                  >
+                    <HeartPulse className="h-4 w-4" />
+                    View Health Score
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -366,6 +468,45 @@ export function SuppliersView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invite Confirmation Dialog */}
+      <AlertDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Portal Invite</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send portal invite to <strong>{supplierToInvite?.name}</strong>?
+              <span className="block mt-2">
+                They'll receive an email at <strong>{supplierToInvite?.portalEmail || supplierToInvite?.email}</strong> to set up their account and view their invoices.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={inviting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleInviteConfirm}
+              disabled={inviting}
+            >
+              {inviting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Invite"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Health Score Dialog */}
+      <SupplierHealthDialog
+        supplierId={healthSupplierId}
+        supplierName={healthSupplierName}
+        open={healthDialogOpen}
+        onOpenChange={setHealthDialogOpen}
+      />
     </div>
   );
 }

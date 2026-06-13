@@ -1,8 +1,10 @@
-import { Home, Users, FileText, BarChart3, Settings, LogOut, Store, ScanLine } from "lucide-react";
+import { Home, Users, FileText, BarChart3, Settings, LogOut, Store, ScanLine, TrendingUp, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { billAPI } from "@/lib/api";
 
 interface SidebarProps {
   activeTab: string;
@@ -15,12 +17,34 @@ const menuItems = [
   { id: "bills", label: "Bills", icon: FileText },
   { id: "scan", label: "Scan Bill", icon: ScanLine },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
+  { id: "forecast", label: "Forecast", icon: TrendingUp },
+  { id: "disputes", label: "Disputes", icon: AlertTriangle },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [disputesCount, setDisputesCount] = useState(0);
+
+  useEffect(() => {
+    // Initial fetch
+    fetchDisputesCount();
+
+    // Poll every 60 seconds
+    const interval = setInterval(fetchDisputesCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchDisputesCount = async () => {
+    try {
+      const res = await billAPI.getDisputes('open');
+      setDisputesCount(res.data.length);
+    } catch (error) {
+      // Silently fail on background poll
+      console.error("Failed to fetch disputes count:", error);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -60,7 +84,14 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                 onClick={() => onTabChange(item.id)}
               >
                 <Icon className="h-5 w-5" />
-                {item.label}
+                <div className="flex flex-1 items-center justify-between">
+                  <span>{item.label}</span>
+                  {item.id === "disputes" && disputesCount > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground shadow-sm">
+                      {disputesCount}
+                    </span>
+                  )}
+                </div>
               </Button>
             );
           })}

@@ -64,6 +64,27 @@ export function SettingsView() {
     }
   }, [user, activeDialog]);
 
+  // Handle Supplier Portal Toggle
+  const handleSupplierPortalToggle = async (checked: boolean) => {
+    try {
+      toast.loading(checked ? "Enabling Supplier Portal..." : "Disabling Supplier Portal...");
+      const res = await authAPI.updateProfile({ supplierPortalEnabled: checked });
+      updateUser(res.data.user);
+      toast.dismiss();
+      toast.success(checked ? "Supplier Portal enabled" : "Supplier Portal disabled");
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error(error.message || "Failed to update portal settings");
+    }
+  };
+
+  // Copy Portal Link
+  const copyPortalLink = () => {
+    const url = `${window.location.origin}/supplier/login`;
+    navigator.clipboard.writeText(url);
+    toast.success("Portal link copied to clipboard!");
+  };
+
   // Toggle dark mode
   const handleDarkModeToggle = (checked: boolean) => {
     setDarkMode(checked);
@@ -229,6 +250,19 @@ export function SettingsView() {
       ],
     },
     {
+      title: "Supplier Portal",
+      items: [
+        {
+          icon: User, // We'll just reuse User icon if we don't import another
+          label: "Enable Supplier Portal",
+          description: "Allow your suppliers to log in and view their invoices",
+          hasSwitch: true,
+          checked: !!user?.supplierPortalEnabled,
+          onToggle: handleSupplierPortalToggle
+        }
+      ]
+    },
+    {
       title: "Data",
       items: [
         { 
@@ -342,6 +376,20 @@ export function SettingsView() {
           <LogOut className="h-5 w-5 mr-2" />
           Logout
         </Button>
+
+        {/* Portal Link Section */}
+        {user?.supplierPortalEnabled && (
+          <Card className="p-6 border-primary/20 bg-primary/5 mt-8">
+            <h3 className="font-bold text-lg mb-2">Supplier Portal Link</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Share this link with your invited suppliers so they can log in to view their invoices and upload new ones.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={`${window.location.origin}/supplier/login`} className="bg-background" />
+              <Button onClick={copyPortalLink}>Copy</Button>
+            </div>
+          </Card>
+        )}
 
         {/* Version */}
         <p className="text-center text-sm text-muted-foreground">

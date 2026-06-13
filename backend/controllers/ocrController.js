@@ -44,12 +44,18 @@ IMPORTANT RULES:
   "description": "string or null",
   "items": [
     {
-      "name": "string",
+      "description": "string",
       "quantity": number,
-      "price": number,
-      "unit": "string"
+      "unitPrice": number,
+      "hsnCode": "string or null",
+      "gstRate": number,
+      "gstType": "CGST_SGST" | "IGST"
     }
   ],
+  "subtotal": number or null,
+  "totalCGST": number or null,
+  "totalSGST": number or null,
+  "totalIGST": number or null,
   "confidence": "high" | "medium" | "low"
 }
 
@@ -60,7 +66,10 @@ EXTRACTION RULES:
 - For totalAmount, return a plain number WITHOUT currency symbols (e.g. "₹1,500.00" → 1500, "$250" → 250)
 - For supplierGST, look for GSTIN patterns: 15-character alphanumeric codes (e.g. "22AAAAA0000A1Z5")
 - For description, provide a brief summary of what the bill is for
-- For item units, use: "unit", "kg", "g", "L", "mL", "pcs", "box", "pack", "dozen", etc.
+- For item gstRate, use standard slabs (0, 5, 12, 18, 28) if visible. If not visible, use 0.
+- For item gstType, default to "CGST_SGST" (intra-state) UNLESS "IGST" is explicitly mentioned for the item or on the bill.
+- For item hsnCode, look for 4-8 digit HSN/SAC codes.
+- Look for totalCGST, totalSGST, and totalIGST at the bottom footer of the bill if present.
 
 CONFIDENCE SCORING:
 - "high": Most key fields extracted (supplier name + total amount + date + at least some items)
@@ -191,11 +200,17 @@ export async function scanBill(req, res) {
       dueDate: parsedData.dueDate || null,
       totalAmount: typeof parsedData.totalAmount === 'number' ? parsedData.totalAmount : null,
       description: parsedData.description || null,
+      subtotal: typeof parsedData.subtotal === 'number' ? parsedData.subtotal : null,
+      totalCGST: typeof parsedData.totalCGST === 'number' ? parsedData.totalCGST : null,
+      totalSGST: typeof parsedData.totalSGST === 'number' ? parsedData.totalSGST : null,
+      totalIGST: typeof parsedData.totalIGST === 'number' ? parsedData.totalIGST : null,
       items: Array.isArray(parsedData.items) ? parsedData.items.map(item => ({
-        name: item.name || '',
+        description: item.description || item.name || '',
         quantity: typeof item.quantity === 'number' ? item.quantity : 1,
-        price: typeof item.price === 'number' ? item.price : 0,
-        unit: item.unit || 'unit',
+        unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : (typeof item.price === 'number' ? item.price : 0),
+        hsnCode: item.hsnCode || '',
+        gstRate: [0, 5, 12, 18, 28].includes(item.gstRate) ? item.gstRate : 0,
+        gstType: item.gstType === 'IGST' ? 'IGST' : 'CGST_SGST',
       })) : [],
       confidence: ['high', 'medium', 'low'].includes(parsedData.confidence)
         ? parsedData.confidence

@@ -483,6 +483,34 @@ router.get('/analytics/summary', async (req, res) => {
   }
 });
 
+// @route   GET /api/analytics/forecast
+// @desc    Get cash flow forecast for upcoming days
+// @access  Private
+router.get('/analytics/forecast', async (req, res) => {
+  try {
+    const userId = req.user._id;
+    let days = parseInt(req.query.days) || 30;
+    
+    // Cap at 90 days
+    if (days > 90) days = 90;
+
+    const { generateForecast } = await import('../services/forecastService.js');
+    const forecast = await generateForecast(userId, days);
+
+    res.status(200).json({
+      success: true,
+      data: forecast
+    });
+  } catch (error) {
+    console.error('Get forecast error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while generating forecast',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // ==================== DUE BILLS ROUTES ====================
 
 // @route   GET /api/bills/due

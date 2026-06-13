@@ -1,0 +1,139 @@
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
+import { Store, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { useSupplierAuth } from '@/contexts/SupplierAuthContext';
+
+export function SupplierLoginPage() {
+  const navigate = useNavigate();
+  const { login } = useSupplierAuth();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      setIsSubmitting(true);
+      const res = await axios.post('http://localhost:5000/api/supplier-auth/login', {
+        email,
+        password
+      });
+
+      if (res.data.success) {
+        login(res.data.token, res.data.supplier);
+        navigate('/supplier/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid email or password');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
+      <div className="mb-8 flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="bg-primary p-2 rounded-xl">
+            <Store className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight text-foreground">
+            Digibill
+          </span>
+        </div>
+        <span className="bg-secondary text-secondary-foreground text-xs font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+          Supplier Portal
+        </span>
+      </div>
+
+      <Card className="w-full max-w-md shadow-xl border-border/50">
+        <CardHeader className="space-y-1 text-center pb-6">
+          <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Enter your email and password to access your portal
+          </p>
+        </CardHeader>
+        
+        <CardContent>
+          {error && (
+            <div className="mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="name@example.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link 
+                  to="/supplier/forgot-password" 
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full mt-2" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Sign In
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-4 border-t border-border/50 pt-6">
+          <div className="bg-muted/50 p-3 rounded-lg border border-border/50 text-center w-full">
+            <p className="text-xs text-muted-foreground">
+              Supplier accounts are invite-only. Please contact your shop owner if you haven't received an invitation link.
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Are you a shop owner?{' '}
+            <Link to="/login" className="font-semibold text-primary hover:underline">
+              Sign in here &rarr;
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}

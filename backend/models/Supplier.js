@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const supplierSchema = new mongoose.Schema(
   {
@@ -47,6 +48,38 @@ const supplierSchema = new mongoose.Schema(
     },
     deletedAt: {
       type: Date
+    },
+    portalEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        'Please provide a valid email address'
+      ]
+    },
+    portalPassword: {
+      type: String,
+      select: false
+    },
+    inviteToken: {
+      type: String,
+      select: false
+    },
+    inviteTokenExpiry: {
+      type: Date
+    },
+    inviteStatus: {
+      type: String,
+      enum: ['not_invited', 'invited', 'active'],
+      default: 'not_invited'
+    },
+    lastLogin: {
+      type: Date
+    },
+    portalEnabled: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -57,6 +90,33 @@ const supplierSchema = new mongoose.Schema(
 // Index for faster queries
 supplierSchema.index({ createdBy: 1, name: 1 });
 supplierSchema.index({ createdBy: 1, totalSpend: -1 });
+supplierSchema.index({ portalEmail: 1 });
+supplierSchema.index({ inviteToken: 1 });
+
+// Hash portal password before saving
+supplierSchema.pre('save', async function (next) {
+  // Set portalEmail to existing email if not provided but email exists
+  // Wait, email is not in the base schema! The prompt says "defaults to existing email field",
+  // Let me check if email exists. The existing schema has no 'email' field!
+  // I will just proceed with portalEmail.
+  if (!this.isModified('portalPassword') || !this.portalPassword) {
+    return next();
+  }
+  
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.portalPassword = await bcrypt.hash(this.portalPassword, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Method to compare portal password
+supplierSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.portalPassword) return false;
+  return await bcrypt.compare(candidatePassword, this.portalPassword);
+};
 
 // Virtual for total paid amount
 supplierSchema.virtual('paidAmount').get(function () {

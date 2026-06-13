@@ -7,6 +7,10 @@ import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import analyticsRoutes from './routes/analytics.js';
 import ocrRoutes from './routes/ocrRoutes.js';
+import reminderRoutes from './routes/reminders.js';
+import supplierAuthRoutes from './routes/supplierAuth.js';
+import supplierPortalRoutes from './routes/supplierPortal.js';
+import reminderCron from './jobs/reminderCron.js';
 
 // Load environment variables
 dotenv.config();
@@ -30,9 +34,12 @@ app.use(globalLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/supplier-auth', supplierAuthRoutes);
+app.use('/api/supplier-portal', supplierPortalRoutes);
 app.use('/api', apiRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api/ocr', ocrRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -65,4 +72,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+
+  // Start the payment reminder cron job
+  reminderCron.start();
 });

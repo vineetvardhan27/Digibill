@@ -7,11 +7,13 @@ import { BillsView } from "@/components/views/BillsView";
 import { OCRScanView } from "@/components/views/OCRScanView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { SettingsView } from "@/components/views/SettingsView";
+import { ForecastView } from "@/components/views/ForecastView";
+import { DisputesPage } from "@/pages/DisputesPage";
 
 const Index = () => {
   const { tab } = useParams();
   const navigate = useNavigate();
-  const validTabs = ["dashboard", "suppliers", "bills", "scan", "analytics", "settings"];
+  const validTabs = ["dashboard", "suppliers", "bills", "scan", "analytics", "forecast", "settings", "disputes"];
   
   // Default to dashboard if no tab or invalid tab is provided
   const activeTab = tab && validTabs.includes(tab) ? tab : "dashboard";
@@ -42,8 +44,12 @@ const Index = () => {
         return <OCRScanView />;
       case "analytics":
         return <AnalyticsView />;
+      case "forecast":
+        return <ForecastView />;
       case "settings":
         return <SettingsView />;
+      case "disputes":
+        return <DisputesPage />;
       default:
         return <DashboardView />;
     }

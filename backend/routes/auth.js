@@ -88,6 +88,7 @@ router.post(
             name: user.name,
             email: user.email,
             phone: user.phone,
+            supplierPortalEnabled: user.supplierPortalEnabled,
             createdAt: user.createdAt
           }
         }
@@ -166,6 +167,7 @@ router.post(
             name: user.name,
             email: user.email,
             phone: user.phone,
+            supplierPortalEnabled: user.supplierPortalEnabled,
             createdAt: user.createdAt
           }
         }
@@ -233,7 +235,8 @@ router.post('/verify-token', async (req, res) => {
           user: {
             id: user._id,
             name: user.name,
-            email: user.email
+            email: user.email,
+            supplierPortalEnabled: user.supplierPortalEnabled
           }
         }
       });
@@ -257,7 +260,7 @@ router.post('/verify-token', async (req, res) => {
 // @access  Private
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
-    const { name, phone, shopName, shopAddress } = req.body;
+    const { name, phone, shopName, shopAddress, supplierPortalEnabled } = req.body;
     
     // Find user by ID from the token
     const user = await User.findById(req.user.id);
@@ -274,6 +277,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
     if (phone !== undefined) user.phone = phone;
     if (shopName !== undefined) user.shopName = shopName;
     if (shopAddress !== undefined) user.shopAddress = shopAddress;
+    if (supplierPortalEnabled !== undefined) user.supplierPortalEnabled = supplierPortalEnabled;
     
     await user.save();
     
@@ -288,6 +292,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
           phone: user.phone,
           shopName: user.shopName,
           shopAddress: user.shopAddress,
+          supplierPortalEnabled: user.supplierPortalEnabled,
           createdAt: user.createdAt
         }
       }

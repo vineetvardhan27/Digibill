@@ -1,5 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Supplier, Bill, DashboardStats, MonthlyData, SupplierSpend } from '@/types';
+import type { HealthScore, HealthSummaryItem } from '@/types/health';
+import type { ForecastResponse } from '@/types/forecast';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -138,6 +140,33 @@ export const supplierAPI = {
     }>(`/suppliers/${id}`);
     return response.data;
   },
+
+  // Invite supplier
+  inviteSupplier: async (id: string) => {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+    }>(`/suppliers/${id}/invite`);
+    return response.data;
+  },
+
+  // Get health score for a single supplier
+  getHealthScore: async (id: string) => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: HealthScore & { supplierId: string; supplierName: string };
+    }>(`/suppliers/${id}/health`);
+    return response.data;
+  },
+
+  // Get health summary for all suppliers
+  getHealthSummary: async () => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: HealthSummaryItem[];
+    }>('/suppliers/health-summary');
+    return response.data;
+  },
 };
 
 // ==================== BILL API ====================
@@ -231,6 +260,24 @@ export const billAPI = {
       success: boolean;
       message: string;
     }>(`/bills/${id}`);
+    return response.data;
+  },
+
+  // Get disputes
+  getDisputes: async (status: string = 'open') => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: import('@/types').BillDispute[];
+    }>('/bills/disputes', { params: { status } });
+    return response.data;
+  },
+
+  // Update dispute
+  updateDispute: async (id: string, data: { status: string; ownerNote?: string }) => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data: import('@/types').BillDispute;
+    }>(`/bills/disputes/${id}`, data);
     return response.data;
   },
 };
@@ -339,6 +386,15 @@ export const analyticsAPI = {
         };
       };
     }>('/bills/upcoming', { params: { startDays, endDays } });
+    return response.data;
+  },
+
+  // Get cash flow forecast
+  getForecast: async (days: number = 30) => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: ForecastResponse;
+    }>(`/analytics/forecast?days=${days}`);
     return response.data;
   },
 };

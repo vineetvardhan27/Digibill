@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Search, Filter, Camera, FileText, Loader2, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, Filter, Camera, FileText, Loader2, Sparkles, AlertTriangle } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +29,12 @@ import { cn } from "@/lib/utils";
 import { billAPI, supplierAPI } from "@/lib/api";
 import { useOCRScan } from "@/hooks/useOCRScan";
 import { BillScanUploader } from "@/components/OCR/BillScanUploader";
+import { GSTLineItemEditor } from "@/components/bills/GSTLineItemEditor";
+import { Download } from "lucide-react";
+import { generateGSTInvoice } from "@/lib/pdfGenerator";
 
 export function BillsView() {
+  const navigate = useNavigate();
   const [bills, setBills] = useState<Bill[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -38,6 +43,7 @@ export function BillsView() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+  const [openDisputes, setOpenDisputes] = useState<any[]>([]);
   const [newBill, setNewBill] = useState({
     supplierId: "",
     amount: "",
@@ -61,7 +67,17 @@ export function BillsView() {
   useEffect(() => {
     fetchBills();
     fetchSuppliers();
+    fetchOpenDisputes();
   }, []);
+
+  const fetchOpenDisputes = async () => {
+    try {
+      const res = await billAPI.getDisputes('open');
+      if (res.success) setOpenDisputes(res.data);
+    } catch (e) {
+      console.error('Failed to fetch open disputes:', e);
+    }
+  };
 
   // ─── Auto-populate form when scan completes ────────────────────────────────
   useEffect(() => {
@@ -400,10 +416,6 @@ export function BillsView() {
               </div>
             </DialogContent>
           </Dialog>
-          <Button variant="outline" size="lg" className="gap-2">
-            <Camera className="h-5 w-5" />
-            Scan Bill
-          </Button>
         </div>
 
         {/* Search & Tabs */}
@@ -470,6 +482,13 @@ export function BillsView() {
                         Pending
                       </Badge>
                     )}
+                    {openDisputes.some(d => 
+                      (typeof d.billId === 'string' ? d.billId : d.billId?._id) === (bill._id || bill.id)
+                    ) && (
+                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive ml-2 shrink-0">
+                        Disputed
+                      </Badge>
+                    )}
                   </div>
 
                   {bill.description && (
@@ -519,7 +538,7 @@ export function BillsView() {
 
         {/* Bill Details Dialog */}
         <Dialog open={!!selectedBill} onOpenChange={(open) => !open && setSelectedBill(null)}>
-          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
@@ -529,6 +548,34 @@ export function BillsView() {
 
             {selectedBill && (
               <div className="space-y-6 pt-4">
+                {/* Dispute Alert Banner */}
+                {openDisputes.find(d => 
+                  (typeof d.billId === 'string' ? d.billId : d.billId?._id) === (selectedBill._id || selectedBill.id)
+                ) && (
+                  <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">Dispute Raised</p>
+                      <p className="text-sm mt-1">
+                        {openDisputes.find(d => 
+                          (typeof d.billId === 'string' ? d.billId : d.billId?._id) === (selectedBill._id || selectedBill.id)
+                        )?.reason}
+                      </p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-destructive/30 hover:bg-destructive/10 hover:text-destructive whitespace-nowrap"
+                      onClick={() => {
+                        setSelectedBill(null);
+                        navigate('/disputes');
+                      }}
+                    >
+                      Resolve Dispute
+                    </Button>
+                  </div>
+                )}
+
                 {/* Header info */}
                 <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-xl border border-border/50">
                   <div>
@@ -559,6 +606,20 @@ export function BillsView() {
                   </div>
                 </div>
 
+                <div className="flex justify-end mt-2 mb-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2"
+                    onClick={() => {
+                      if (selectedBill) generateGSTInvoice(selectedBill);
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download GST Invoice
+                  </Button>
+                </div>
+
                 {selectedBill.description && (
                   <div>
                     <p className="text-sm font-semibold mb-1">Description</p>
@@ -576,30 +637,11 @@ export function BillsView() {
                       <p className="text-sm text-muted-foreground">No line items recorded for this bill.</p>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-border/50 overflow-hidden">
-                      <div className="grid grid-cols-12 gap-2 bg-muted/50 p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        <div className="col-span-6">Item</div>
-                        <div className="col-span-2 text-right">Qty</div>
-                        <div className="col-span-2 text-right">Price</div>
-                        <div className="col-span-2 text-right">Total</div>
-                      </div>
-                      <div className="divide-y divide-border/50">
-                        {selectedBill.items.map((item, idx) => (
-                          <div key={idx} className="grid grid-cols-12 gap-2 p-3 text-sm items-center hover:bg-muted/20 transition-colors">
-                            <div className="col-span-6 font-medium">{item.name}</div>
-                            <div className="col-span-2 text-right">{item.quantity} {item.unit !== 'unit' ? item.unit : ''}</div>
-                            <div className="col-span-2 text-right">{formatCurrency(item.price)}</div>
-                            <div className="col-span-2 text-right font-medium">{formatCurrency(item.quantity * item.price)}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="bg-muted/30 p-3 border-t border-border/50 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-muted-foreground">Items Subtotal</span>
-                        <span className="font-bold">
-                          {formatCurrency(selectedBill.items.reduce((sum, item) => sum + (item.quantity * item.price), 0))}
-                        </span>
-                      </div>
-                    </div>
+                    <GSTLineItemEditor 
+                      items={selectedBill.items as any} 
+                      onChange={() => {}} 
+                      readOnly 
+                    />
                   )}
                 </div>
               </div>

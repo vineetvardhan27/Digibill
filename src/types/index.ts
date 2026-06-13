@@ -1,3 +1,5 @@
+import { GSTLineItem, GSTRate, GSTType } from './gst';
+
 export interface User {
   id?: string; // For compatibility
   _id?: string; // MongoDB ID
@@ -6,6 +8,7 @@ export interface User {
   phone?: string;
   shopName?: string;
   shopAddress?: string;
+  supplierPortalEnabled?: boolean;
   createdAt?: Date;
 }
 
@@ -21,7 +24,23 @@ export interface Supplier {
   totalBills: number;
   lastPurchaseDate?: Date;
   pendingAmount: number;
+  portalEmail?: string;
+  inviteStatus?: 'not_invited' | 'invited' | 'active';
+  portalEnabled?: boolean;
   createdAt: Date;
+}
+
+export interface BillDispute {
+  _id: string;
+  billId: string | Bill;
+  supplierId: string | Supplier;
+  ownerId: string;
+  reason: string;
+  status: 'open' | 'resolved' | 'rejected';
+  supplierNote?: string;
+  ownerNote?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Bill {
@@ -42,12 +61,13 @@ export interface Bill {
   paidDate?: Date;
   dueDate?: Date;
   imageUrl?: string;
-  items?: BillItem[];
+  items?: GSTLineItem[];
   products?: BillProduct[]; // Deprecated, use items
   createdAt: Date;
 }
 
 export interface BillItem {
+  // Deprecated: used for legacy compatibility, use GSTLineItem
   name: string;
   quantity: number;
   price: number;
@@ -90,10 +110,12 @@ export interface SupplierSpend {
 // ==================== OCR TYPES ====================
 
 export interface ParsedBillItem {
-  name: string;
+  description: string;
   quantity: number;
-  price: number;
-  unit?: string;
+  unitPrice: number;
+  hsnCode?: string;
+  gstRate: GSTRate;
+  gstType: GSTType;
 }
 
 export interface ParsedBillData {
@@ -106,7 +128,10 @@ export interface ParsedBillData {
   gstNumber: string | null;
   items: ParsedBillItem[];
   subtotal: number | null;
-  tax: number | null;
+  totalCGST: number | null;
+  totalSGST: number | null;
+  totalIGST: number | null;
+  tax: number | null; // legacy
   totalAmount: number | null;
 }
 
@@ -176,10 +201,12 @@ export type OCRWorkflowState =
 // ==================== GROQ VISION OCR TYPES ====================
 
 export interface GroqOCRItem {
-  name: string;
+  description: string;
   quantity: number;
-  price: number;
-  unit: string;
+  unitPrice: number;
+  hsnCode?: string;
+  gstRate: number;
+  gstType: string;
 }
 
 export interface GroqOCRResult {
@@ -191,6 +218,10 @@ export interface GroqOCRResult {
   dueDate: string | null;
   totalAmount: number | null;
   description: string | null;
+  subtotal: number | null;
+  totalCGST: number | null;
+  totalSGST: number | null;
+  totalIGST: number | null;
   items: GroqOCRItem[];
   confidence: 'high' | 'medium' | 'low';
 }

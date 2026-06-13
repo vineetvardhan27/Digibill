@@ -88,11 +88,19 @@ export function Login() {
               )}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              Sign up
-            </Link>
+          <div className="mt-4 flex flex-col space-y-2 text-center text-sm">
+            <div>
+              <span className="text-muted-foreground">Don't have an account? </span>
+              <Link to="/register" className="text-primary hover:underline font-medium">
+                Sign up
+              </Link>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Are you a supplier? </span>
+              <Link to="/supplier/login" className="text-primary hover:underline font-medium">
+                Supplier Portal
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Supplier, ParsedBillData, ParsedBillItem, OCRFieldConfidence, MatchedSupplier } from '@/types';
 import { supplierAPI } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { GSTLineItemEditor } from '../bills/GSTLineItemEditor';
+import { GSTSummary } from '@/types/gst';
 
 interface ExtractedBillFormProps {
   editableData: ParsedBillData;
@@ -99,14 +101,15 @@ export function ExtractedBillForm({
     }
   };
 
-  const calculateTotal = (): number => {
-    if (editableData.items.length > 0) {
-      return editableData.items.reduce(
-        (sum, item) => sum + (item.quantity || 0) * (item.price || 0),
-        0
-      );
+  const handleTotalsChange = (totals: GSTSummary) => {
+    if (totals.grandTotal !== editableData.totalAmount) {
+      // Auto-update total amount to match the items total
+      onFieldChange('totalAmount', totals.grandTotal);
+      onFieldChange('subtotal', totals.subtotal);
+      onFieldChange('totalCGST', totals.totalCGST);
+      onFieldChange('totalSGST', totals.totalSGST);
+      onFieldChange('totalIGST', totals.totalIGST);
     }
-    return editableData.totalAmount || 0;
   };
 
   return (
@@ -275,76 +278,11 @@ export function ExtractedBillForm({
             </Button>
           </div>
 
-          {editableData.items.length > 0 ? (
-            <div className="space-y-2">
-              {/* Table header */}
-              <div className="hidden sm:grid grid-cols-[1fr_80px_100px_60px_40px] gap-2 px-2 text-xs font-medium text-muted-foreground">
-                <span>Item Name</span>
-                <span>Qty</span>
-                <span>Price (₹)</span>
-                <span>Unit</span>
-                <span></span>
-              </div>
-
-              {editableData.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_80px_100px_60px_40px] gap-2 rounded-lg border border-border/40 p-2 bg-background/50"
-                >
-                  <Input
-                    value={item.name}
-                    onChange={(e) => onItemChange(index, { ...item, name: e.target.value })}
-                    placeholder="Item name"
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.quantity}
-                    onChange={(e) => onItemChange(index, { ...item, quantity: parseFloat(e.target.value) || 0 })}
-                    placeholder="Qty"
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.price}
-                    onChange={(e) => onItemChange(index, { ...item, price: parseFloat(e.target.value) || 0 })}
-                    placeholder="Price"
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    value={item.unit || 'unit'}
-                    onChange={(e) => onItemChange(index, { ...item, unit: e.target.value })}
-                    placeholder="Unit"
-                    className="h-8 text-sm"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => onRemoveItem(index)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-
-              {/* Items total */}
-              <div className="flex justify-end px-2 pt-2 border-t border-border/30">
-                <span className="text-sm text-muted-foreground">
-                  Items Total: <span className="font-semibold text-foreground">₹{calculateTotal().toFixed(2)}</span>
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border/50 py-6 text-center text-sm text-muted-foreground">
-              No line items detected. Click "Add Item" to add manually.
-            </div>
-          )}
+          <GSTLineItemEditor
+            items={editableData.items as any}
+            onChange={(newItems) => onFieldChange('items', newItems as any)}
+            onTotalsChange={handleTotalsChange}
+          />
         </div>
 
         {/* ─── Save Button ────────────────────────────────────────── */}

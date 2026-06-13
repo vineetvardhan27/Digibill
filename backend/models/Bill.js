@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 
 const billItemSchema = new mongoose.Schema({
-  name: {
+  description: {
     type: String,
-    required: [true, 'Item name is required'],
+    required: [true, 'Item description is required'],
     trim: true
   },
   quantity: {
@@ -11,16 +11,32 @@ const billItemSchema = new mongoose.Schema({
     required: [true, 'Item quantity is required'],
     min: [0, 'Quantity cannot be negative']
   },
-  price: {
+  unitPrice: {
     type: Number,
-    required: [true, 'Item price is required'],
+    required: [true, 'Item unit price is required'],
     min: [0, 'Price cannot be negative']
   },
-  unit: {
+  hsnCode: {
     type: String,
     trim: true,
-    default: 'unit'
-  }
+    maxlength: 8
+  },
+  gstRate: {
+    type: Number,
+    enum: [0, 5, 12, 18, 28],
+    default: 0
+  },
+  gstType: {
+    type: String,
+    enum: ['IGST', 'CGST_SGST'],
+    default: 'CGST_SGST'
+  },
+  // Computed fields (stored)
+  taxableAmount: { type: Number, default: 0 },
+  cgst: { type: Number, default: 0 },
+  sgst: { type: Number, default: 0 },
+  igst: { type: Number, default: 0 },
+  totalAmount: { type: Number, default: 0 }
 }, { _id: true });
 
 const billSchema = new mongoose.Schema(
@@ -61,11 +77,24 @@ const billSchema = new mongoose.Schema(
       type: [billItemSchema],
       default: []
     },
+    // Bill-level computed fields
+    subtotal: { type: Number, default: 0 },
+    totalCGST: { type: Number, default: 0 },
+    totalSGST: { type: Number, default: 0 },
+    totalIGST: { type: Number, default: 0 },
+    grandTotal: { type: Number, default: 0 },
     imageUrl: {
       type: String,
       trim: true
     },
     paidDate: {
+      type: Date
+    },
+    acknowledgedBySupplier: {
+      type: Boolean,
+      default: false
+    },
+    acknowledgedAt: {
       type: Date
     }
   },
@@ -101,6 +130,53 @@ billSchema.virtual('daysUntilDue').get(function () {
 // Ensure virtuals are included in JSON
 billSchema.set('toJSON', { virtuals: true });
 billSchema.set('toObject', { virtuals: true });
+
+// Middleware to calculate GST line item and bill totals before saving
+billSchema.pre('save', function(next) {
+  let subtotal = 0;
+  let totalCGST = 0;
+  let totalSGST = 0;
+  let totalIGST = 0;
+
+  if (this.items && this.items.length > 0) {
+    this.items.forEach(item => {
+      // Calculate taxable amount
+      item.taxableAmount = Number((item.quantity * item.unitPrice).toFixed(2));
+      
+      // Calculate taxes
+      if (item.gstType === 'CGST_SGST') {
+        const halfRate = item.gstRate / 2;
+        item.cgst = Number((item.taxableAmount * (halfRate / 100)).toFixed(2));
+        item.sgst = Number((item.taxableAmount * (halfRate / 100)).toFixed(2));
+        item.igst = 0;
+      } else if (item.gstType === 'IGST') {
+        item.cgst = 0;
+        item.sgst = 0;
+        item.igst = Number((item.taxableAmount * (item.gstRate / 100)).toFixed(2));
+      }
+
+      // Calculate line item total
+      item.totalAmount = Number((item.taxableAmount + item.cgst + item.sgst + item.igst).toFixed(2));
+
+      // Add to bill totals
+      subtotal += item.taxableAmount;
+      totalCGST += item.cgst;
+      totalSGST += item.sgst;
+      totalIGST += item.igst;
+    });
+  }
+
+  this.subtotal = Number(subtotal.toFixed(2));
+  this.totalCGST = Number(totalCGST.toFixed(2));
+  this.totalSGST = Number(totalSGST.toFixed(2));
+  this.totalIGST = Number(totalIGST.toFixed(2));
+  this.grandTotal = Number((subtotal + totalCGST + totalSGST + totalIGST).toFixed(2));
+
+  // Also sync legacy `amount` field to grandTotal to preserve backward compatibility in other parts of the app
+  this.amount = this.grandTotal;
+
+  next();
+});
 
 // Middleware to update supplier stats when bill is saved
 billSchema.post('save', async function (doc) {
