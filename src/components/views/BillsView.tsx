@@ -49,7 +49,7 @@ export function BillsView() {
     amount: "",
     description: "",
     dueDate: "",
-    items: [] as any[],
+    items: [{ description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0, gstType: 'CGST_SGST' }] as any[],
   });
 
   // Track which fields the user has manually edited (so OCR doesn't overwrite them)
@@ -200,14 +200,14 @@ export function BillsView() {
       return;
     }
 
-    if (!newBill.amount || !newBill.amount.trim()) {
-      toast.error("Please enter an amount");
+    if (!newBill.amount || !newBill.amount.trim() || newBill.amount === "0") {
+      toast.error("Please add line items with a valid price");
       return;
     }
 
     const amountValue = parseFloat(newBill.amount);
     if (isNaN(amountValue) || amountValue <= 0) {
-      toast.error("Please enter a valid amount greater than 0");
+      toast.error("Total amount must be greater than 0");
       return;
     }
 
@@ -229,7 +229,7 @@ export function BillsView() {
         return [response.data.bill, ...newBills];
       });
       
-      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [] });
+      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [{ description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0, gstType: 'CGST_SGST' }] });
       userEditedFields.current.clear();
       cleanupOCR();
       setIsDialogOpen(false);
@@ -247,7 +247,7 @@ export function BillsView() {
   const handleDialogChange = (open: boolean) => {
     setIsDialogOpen(open);
     if (!open) {
-      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [] });
+      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [{ description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0, gstType: 'CGST_SGST' }] });
       userEditedFields.current.clear();
       cleanupOCR();
     }
@@ -286,7 +286,7 @@ export function BillsView() {
                 Add Bill
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-xl">Add New Bill</DialogTitle>
               </DialogHeader>
@@ -349,62 +349,11 @@ export function BillsView() {
                     </p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-sm font-semibold">Amount (₹) *</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="Enter amount"
-                    value={newBill.amount}
-                    onChange={(e) => {
-                      userEditedFields.current.add('amount');
-                      setNewBill({ ...newBill, amount: e.target.value });
-                    }}
-                    className={cn(
-                      "h-11",
-                      scanResult?.totalAmount !== null && scanResult?.totalAmount !== undefined && !userEditedFields.current.has('amount') && "ring-1 ring-primary/30 bg-primary/5"
-                    )}
-                    min="0.01"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dueDate" className="text-sm font-semibold">Due Date (Optional)</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={newBill.dueDate}
-                    onChange={(e) => {
-                      userEditedFields.current.add('dueDate');
-                      setNewBill({ ...newBill, dueDate: e.target.value });
-                    }}
-                    className={cn(
-                      "h-11",
-                      scanResult?.dueDate && !userEditedFields.current.has('dueDate') && "ring-1 ring-primary/30 bg-primary/5"
-                    )}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
-                  <Input
-                    id="description"
-                    placeholder="E.g., Rice, Dal supplies"
-                    value={newBill.description}
-                    onChange={(e) => {
-                      userEditedFields.current.add('description');
-                      setNewBill({ ...newBill, description: e.target.value });
-                    }}
-                    className={cn(
-                      "h-11",
-                      scanResult?.description && !userEditedFields.current.has('description') && "ring-1 ring-primary/30 bg-primary/5"
-                    )}
-                  />
-                </div>
+
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Line Items (Optional)</Label>
-                  <div className="bg-background/50 rounded-lg p-2 border border-border/40">
+                  <Label className="text-sm font-semibold">Line Items</Label>
+                  <div className="bg-background/50 rounded-lg p-2 border border-border/40 overflow-x-auto">
                     <GSTLineItemEditor
                       items={newBill.items}
                       onChange={(newItems) => setNewBill({ ...newBill, items: newItems as any })}
@@ -557,7 +506,7 @@ export function BillsView() {
 
         {/* Bill Details Dialog */}
         <Dialog open={!!selectedBill} onOpenChange={(open) => !open && setSelectedBill(null)}>
-          <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />

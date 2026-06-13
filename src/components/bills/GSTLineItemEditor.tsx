@@ -64,16 +64,16 @@ export function GSTLineItemEditor({
         <table className="w-full text-sm text-left">
           <thead className="bg-muted text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 font-medium w-[25%]">Description</th>
-              <th className="px-3 py-2 font-medium w-[8%]">Qty</th>
-              <th className="px-3 py-2 font-medium w-[12%]">Unit Price (₹)</th>
-              <th className="px-3 py-2 font-medium w-[10%]">HSN</th>
-              <th className="px-3 py-2 font-medium w-[10%]">GST %</th>
-              <th className="px-3 py-2 font-medium w-[12%]">GST Type</th>
-              <th className="px-3 py-2 font-medium w-[10%] text-right">Taxable</th>
-              <th className="px-3 py-2 font-medium w-[8%] text-right">Tax</th>
-              <th className="px-3 py-2 font-medium w-[10%] text-right">Total</th>
-              {!readOnly && <th className="px-3 py-2 w-[5%]"></th>}
+              <th className="px-3 py-2 font-medium min-w-[150px]">Description</th>
+              <th className="px-3 py-2 font-medium min-w-[80px]">Qty</th>
+              <th className="px-3 py-2 font-medium min-w-[120px]">Unit Price (₹)</th>
+              <th className="px-3 py-2 font-medium min-w-[80px]">HSN</th>
+              <th className="px-3 py-2 font-medium min-w-[90px]">GST %</th>
+              <th className="px-3 py-2 font-medium min-w-[130px]">GST Type</th>
+              <th className="px-3 py-2 font-medium min-w-[90px] text-right">Taxable</th>
+              <th className="px-3 py-2 font-medium min-w-[80px] text-right">Tax</th>
+              <th className="px-3 py-2 font-medium min-w-[90px] text-right">Total</th>
+              {!readOnly && <th className="px-3 py-2 w-[40px]"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-border bg-card">
@@ -100,7 +100,7 @@ export function GSTLineItemEditor({
                       min="1"
                       value={item.quantity || ''}
                       onChange={(e) => handleUpdate(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="h-8 text-right"
+                      className="h-8 text-right [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   )}
                 </td>
@@ -114,7 +114,7 @@ export function GSTLineItemEditor({
                       step="0.01"
                       value={item.unitPrice || ''}
                       onChange={(e) => handleUpdate(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                      className="h-8 text-right"
+                      className="h-8 text-right [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   )}
                 </td>
