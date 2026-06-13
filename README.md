@@ -11,11 +11,14 @@ Digibill is a comprehensive B2B supplier and bill management platform designed f
 
 ## ✨ Key Features
 
-*   **🏢 Supplier Management**: Track all your B2B suppliers, their contact info, and total spend in one place.
-*   **📄 Digital Billing**: Log bills manually or organize them by supplier. Track pending vs paid status.
-*   **🤖 AI Bill Scanning (OCR)**: Instantly extract bill details (amounts, line items, dates) by uploading a photo using the **Groq Vision API** (`meta-llama/llama-4-scout-17b-16e-instruct`).
-*   **📊 Analytics Dashboard**: Visualize monthly spending trends, supplier breakdowns, and payment rates with interactive charts.
-*   **⚙️ Settings & Data Export**: Fully manage your shop profile, toggle Dark Mode, and export your entire database (Bills & Suppliers) as a local JSON backup directly from the browser.
+*   **🏢 Supplier Management**: Track all your B2B suppliers, their contact info, and total spend in one place. Send portal invitations directly to suppliers.
+*   **📄 Digital Billing & Indian GST**: Log bills manually or organize them by supplier. Features built-in support for Indian GST, including HSN codes, IGST/CGST/SGST breakdowns, and automatic tax calculations at the line-item level.
+*   **🤖 AI Bill Scanning (OCR)**: Instantly extract bill details (amounts, itemized GST data, dates) by uploading a photo using the **Groq Vision API** (`meta-llama-3.2-11b-vision-preview` or `llama-4-scout-17b-16e-instruct`).
+*   **🌐 Dedicated Supplier Portal**: Suppliers can log in to their own portal to view their invoices, check payment status, and raise disputes on discrepant bills directly with the shop owner.
+*   **💼 Bill Disputes Workflow**: Integrated system for shop owners to review, accept, or reject disputes raised by suppliers with full comment history.
+*   **📈 Smart Analytics & Forecasting**: Visualize monthly spending trends and use the cash flow forecasting module to predict future expenses. Includes automated Supplier Health Scores to assess vendor reliability.
+*   **🖨️ PDF Generation**: Instantly generate and download professional, tabular GST invoice PDFs directly from the browser.
+*   **⚙️ Settings & Data Export**: Fully manage your shop profile, toggle Dark Mode, and export your entire database (Bills & Suppliers) as a local JSON backup.
 *   **🛡️ Security & Rate Limiting**: Secured with JWT authentication. Endpoints are protected by a 3-tier rate limiter (Global, Auth, and OCR) to prevent abuse and brute-force attacks.
 
 ---
