@@ -11,15 +11,18 @@ Digibill is a comprehensive B2B supplier and bill management platform designed f
 
 ## ✨ Key Features
 
-*   **🏢 Supplier Management**: Track all your B2B suppliers, their contact info, and total spend in one place. Send portal invitations directly to suppliers.
-*   **📄 Digital Billing & Indian GST**: Log bills manually or organize them by supplier. Features built-in support for Indian GST, including HSN codes, IGST/CGST/SGST breakdowns, and automatic tax calculations at the line-item level.
-*   **🤖 AI Bill Scanning (OCR)**: Instantly extract bill details (amounts, itemized GST data, dates) by uploading a photo using the **Groq Vision API** (`meta-llama-3.2-11b-vision-preview` or `llama-4-scout-17b-16e-instruct`).
-*   **🌐 Dedicated Supplier Portal**: Suppliers can log in to their own portal to view their invoices, check payment status, and raise disputes on discrepant bills directly with the shop owner.
-*   **💼 Bill Disputes Workflow**: Integrated system for shop owners to review, accept, or reject disputes raised by suppliers with full comment history.
-*   **📈 Smart Analytics & Forecasting**: Visualize monthly spending trends and use the cash flow forecasting module to predict future expenses. Includes automated Supplier Health Scores to assess vendor reliability.
+*   **🏢 Supplier Management & Health Scores**: Track all your B2B suppliers and automatically compute trust grades (0-100) based on real payment history and trends.
+*   **📄 Digital Billing & Full GST Support**: Log bills with interactive line items. Built-in support for Indian GST slabs, HSN codes, IGST/CGST/SGST breakdowns, and live total calculations.
+*   **🤖 AI Bill Scanning (OCR)**: Instantly extract bill details and GST data by uploading a photo using the **Groq Vision API**.
+*   **⏰ Smart Payment Reminders**: Automated daily cron jobs that send payment reminders 1-3 days before due dates via **Email & WhatsApp**.
+*   **🌐 Dedicated Supplier Portal (Auth & Invite)**: Send branded magic-link invites to suppliers. They get an isolated dashboard to view invoices, upload their own PDFs, acknowledge receipts, and raise formal disputes.
+*   **💼 Bill Disputes Workflow**: Integrated system for shop owners to view a live dispute badge, review reasons, and accept/reject disputes directly from their dashboard.
+*   **📈 Cash Flow Forecasting (30 & 90 Day)**: Detect recurring supplier patterns and visualize confirmed vs. predicted upcoming outflows via interactive charts.
+*   **⚠️ Duplicate Bill Detection**: Smart, debounced front-end detection that catches accidental double-entries (same supplier, similar amount/date) before you hit save.
+*   **🚀 Modern Landing & Pricing Page**: Stunning public-facing marketing site featuring a live invoice ticker, responsive pricing tiers, and smooth scroll animations.
 *   **🖨️ PDF Generation**: Instantly generate and download professional, tabular GST invoice PDFs directly from the browser.
-*   **⚙️ Settings & Data Export**: Fully manage your shop profile, toggle Dark Mode, and export your entire database (Bills & Suppliers) as a local JSON backup.
-*   **🛡️ Security & Rate Limiting**: Secured with JWT authentication. Endpoints are protected by a 3-tier rate limiter (Global, Auth, and OCR) to prevent abuse and brute-force attacks.
+*   **⚙️ Settings & Data Export**: Manage shop profiles, toggle Dark Mode, disable portal access globally, and export your database.
+*   **🛡️ Security**: Secured with JWT authentication and protected by a 3-tier rate limiter (Global, Auth, OCR).
 
 ---
 

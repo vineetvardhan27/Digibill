@@ -476,6 +476,32 @@ router.get('/suppliers/:id/health', async (req, res) => {
 
 // ==================== BILL ROUTES ====================
 
+// @route   POST /api/bills/check-duplicate
+// @desc    Check for potential duplicate bills
+// @access  Private
+router.post('/bills/check-duplicate', async (req, res) => {
+  try {
+    const { supplierId, amount, billDate } = req.body;
+    
+    // Lazy import utility to avoid circular deps or startup delays if not needed
+    const { checkForDuplicates } = await import('../utils/duplicateCheck.js');
+    
+    const matches = await checkForDuplicates(req.user._id, { supplierId, amount, billDate });
+
+    res.status(200).json({
+      success: true,
+      isDuplicate: matches.length > 0,
+      data: { matches }
+    });
+  } catch (error) {
+    console.error('Duplicate check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while checking for duplicates'
+    });
+  }
+});
+
 // @route   POST /api/bills
 // @desc    Create a new bill and update supplier stats
 // @access  Private

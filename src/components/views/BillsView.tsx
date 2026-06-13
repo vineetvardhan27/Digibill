@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Filter, Camera, FileText, Loader2, Sparkles, AlertTriangle } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,9 @@ export function BillsView() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [openDisputes, setOpenDisputes] = useState<any[]>([]);
+  const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
+  const [duplicateMatches, setDuplicateMatches] = useState<Bill[]>([]);
+  const [lastCheckedSignature, setLastCheckedSignature] = useState<string>("");
   const [newBill, setNewBill] = useState({
     supplierId: "",
     amount: "",
@@ -63,6 +67,40 @@ export function BillsView() {
     scanBill: performScan,
     cleanup: cleanupOCR,
   } = useOCRScan();
+
+  // Duplicate Check Debounce Logic
+  useEffect(() => {
+    const supplierId = newBill.supplierId;
+    const amount = newBill.amount;
+    
+    if (!supplierId || !amount || parseFloat(amount) <= 0) {
+      setDuplicateMatches([]);
+      return;
+    }
+
+    const signature = `${supplierId}-${amount}`;
+    if (signature === lastCheckedSignature) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setDuplicateCheckLoading(true);
+        const result = await billAPI.checkDuplicate({
+          supplierId,
+          amount: parseFloat(amount),
+          billDate: new Date().toISOString()
+        });
+        
+        setDuplicateMatches(result.data.matches || []);
+        setLastCheckedSignature(signature);
+      } catch (error) {
+        console.error('Duplicate check failed', error);
+      } finally {
+        setDuplicateCheckLoading(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [newBill.supplierId, newBill.amount, lastCheckedSignature]);
 
   // Fetch bills and suppliers on mount
   useEffect(() => {
@@ -366,6 +404,36 @@ export function BillsView() {
                     />
                   </div>
                 </div>
+
+                {duplicateCheckLoading && (
+                  <p className="text-sm text-muted-foreground animate-pulse flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking for duplicates...
+                  </p>
+                )}
+
+                {duplicateMatches.length > 0 && !duplicateCheckLoading && (
+                  <Alert variant="default" className="border-warning/50 bg-warning/10 text-warning [&>svg]:text-warning">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="font-semibold">Possible Duplicate Detected</AlertTitle>
+                    <AlertDescription className="mt-1">
+                      We found similar bills from this supplier recently:
+                      <ul className="mt-2 mb-2 space-y-1 list-disc list-inside">
+                        {duplicateMatches.map(match => (
+                          <li key={match._id || match.id}>
+                            <button 
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); setSelectedBill(match); }}
+                              className="underline hover:text-warning/80"
+                            >
+                              ₹{match.amount} on {formatDate(match.date)}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      Are you sure you want to add this new bill?
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 <Button 
                   className="w-full h-11 text-base" 

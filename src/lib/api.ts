@@ -212,6 +212,16 @@ export const billAPI = {
     return response.data;
   },
 
+  // Check for duplicates
+  checkDuplicate: async (data: { supplierId: string; amount: number; billDate: string }) => {
+    const response = await apiClient.post<{
+      success: boolean;
+      isDuplicate: boolean;
+      data: { matches: Bill[] };
+    }>('/bills/check-duplicate', data);
+    return response.data;
+  },
+
   // Create new bill
   createBill: async (data: {
     supplierId: string;
