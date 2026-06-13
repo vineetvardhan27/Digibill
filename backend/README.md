@@ -1,357 +1,137 @@
-# Kirana Store Management - Backend API
+# 📊 Digibill - Digital Bill & Supplier Management
 
-Backend REST API for the Kirana Store Management System built with Node.js, Express, MongoDB, and JWT authentication.
+Digibill is a comprehensive B2B supplier and bill management platform designed for small businesses and retail shops. It digitizes invoice tracking, manages supplier relationships, and provides expense analytics.
 
-## 🚀 Features
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-43853D?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 
-- ✅ User authentication with JWT tokens
-- ✅ Password hashing with bcryptjs
-- ✅ MongoDB database with Mongoose ODM
-- ✅ Input validation with express-validator
-- ✅ CORS enabled for frontend integration
-- ✅ Environment-based configuration
-- ✅ Automatic supplier statistics calculation
-- ✅ Bill tracking with due date management
+---
 
-## 📋 Prerequisites
+## ✨ Key Features
 
-Before running this application, make sure you have the following installed:
+* 🏢 **Supplier Management & Health Scores**: Track all your B2B suppliers and automatically compute trust grades (0-100) based on real payment history and trends.
+* 📄 **Digital Billing & Full GST Support**: Log bills with interactive line items. Built-in support for Indian GST slabs, HSN codes, IGST/CGST/SGST breakdowns, and live total calculations.
+* 🤖 **AI Bill Scanning (OCR)**: Instantly extract bill details and GST data by uploading a photo using the **Groq Vision API** (`meta-llama/llama-4-scout-17b-16e-instruct`).
+* ⏰ **Smart Payment Reminders**: Automated daily cron jobs that send payment reminders 1-3 days before due dates via Email (Nodemailer) & WhatsApp (Twilio), with full send-log auditing.
+* 🌐 **Dedicated Supplier Portal (Auth & Invite)**: Send branded magic-link invites to suppliers. They get an isolated dashboard to view invoices, upload their own PDFs, acknowledge receipts, and raise formal disputes — completely free for suppliers.
+* 💼 **Bill Disputes Workflow**: Integrated system for shop owners to view a live dispute badge, review reasons, and resolve/reject disputes directly from their dashboard.
+* 📈 **Cash Flow Forecasting (30 & 90 Day)**: Detects recurring supplier bill patterns and visualizes confirmed vs. predicted upcoming outflows via interactive Recharts area charts.
+* ⚠️ **Duplicate Bill Detection**: Smart, debounced front-end detection that catches accidental double-entries (same supplier, similar amount/date within 2%/7 days) before you hit save.
+* 🚀 **Modern Landing & Pricing Page**: Stunning public-facing marketing site featuring a live invoice ticker, responsive pricing tiers (Free / Pro / Business), and smooth scroll animations.
+* 🖨️ **PDF Generation**: Instantly generate and download professional, tabular GST invoice PDFs directly from the browser.
+* ⚙️ **Settings & Data Export**: Manage shop profiles, toggle Dark Mode, disable supplier portal access globally, and export your entire database as JSON.
+* 🛡️ **Security**: Secured with JWT authentication (separate token scopes for owners vs. suppliers) and protected by a 3-tier rate limiter (Global, Auth, OCR).
 
-- Node.js (v16 or higher)
-- MongoDB (local installation or MongoDB Atlas account)
-- npm or yarn package manager
+---
 
-## 🛠️ Installation
+## 🛠️ Tech Stack
 
-1. **Navigate to the backend directory:**
-   ```bash
-   cd backend
-   ```
+* **Frontend**: React 18, TypeScript, Vite, React Router, Tailwind CSS, shadcn/ui, Recharts
+* **Backend**: Node.js, Express.js, MongoDB, Mongoose, JWT, express-rate-limit, groq-sdk
+* **Integrations**: `node-cron` (reminder scheduling), `nodemailer` (email), `twilio` (WhatsApp), `cloudinary` (supplier file uploads), `multer` (multipart handling)
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+---
 
-3. **Create environment file:**
-   ```bash
-   cp .env.example .env
-   ```
+## 🚀 Installation & Setup
 
-4. **Configure environment variables:**
-   
-   Edit the `.env` file with your settings:
-   ```env
-   PORT=5000
-   NODE_ENV=development
-   MONGODB_URI=mongodb://localhost:27017/kirana-db
-   JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-   JWT_EXPIRE=7d
-   CLIENT_URL=http://localhost:5173
-   ```
+### Prerequisites
+* Node.js (v18+)
+* MongoDB (Local or Atlas)
+* A Groq API Key (for the OCR feature)
+* (Optional) SMTP credentials, Twilio account, and Cloudinary account for Reminders & Supplier Portal uploads
 
-## 🗄️ Database Setup
+### 1. Backend Setup
 
-### Option 1: Local MongoDB
+```bash
+cd backend
+npm install
+cp .env.example .env
+```
 
-1. Install MongoDB locally from [mongodb.com](https://www.mongodb.com/try/download/community)
-2. Start MongoDB service:
-   ```bash
-   # Windows
-   net start MongoDB
-   
-   # macOS/Linux
-   sudo systemctl start mongod
-   ```
-3. Use the default URI in `.env`: `mongodb://localhost:27017/kirana-db`
+**Configure `backend/.env`:**
+```env
+# Server
+PORT=5000
+NODE_ENV=development
 
-### Option 2: MongoDB Atlas (Cloud)
+# Database
+MONGODB_URI=mongodb://localhost:27017/digibill
 
-1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Create a new cluster
-3. Add your IP address to the whitelist (or use 0.0.0.0/0 for development)
-4. Create a database user
-5. Get your connection string and update `.env`:
-   ```
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/kirana-db?retryWrites=true&w=majority
-   ```
+# Security
+JWT_SECRET=your_super_secret_jwt_key
+JWT_EXPIRE=7d
+CLIENT_URL=http://localhost:8080
 
-## 🏃 Running the Application
+# AI / OCR
+GROQ_API_KEY=your_groq_api_key_here
 
-### Development Mode (with auto-reload)
+# Email Reminders & Supplier Invites (Nodemailer SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_smtp_app_password
+SMTP_FROM="Digibill <noreply@digibill.app>"
+
+# WhatsApp Reminders (Twilio)
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+
+# Supplier Invoice Uploads (Cloudinary)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+Start the backend:
 ```bash
 npm run dev
 ```
 
-### Production Mode
+### 2. Frontend Setup
+
+Open a new terminal:
 ```bash
-npm start
+# From the root directory
+npm install
+npm run dev
 ```
 
-The server will start on `http://localhost:5000`
+The application will be available at `http://localhost:8080`.
 
-## 📚 API Documentation
+---
 
-### Base URL
-```
-http://localhost:5000/api
-```
+## 📖 How to Use the AI Scanner
+1. Go to the **Bills** page and click **Add Bill**.
+2. Drag and drop an invoice image into the scanner area.
+3. Digibill will securely process the image (in-memory) via Groq Vision API.
+4. The system will auto-populate the total amount, due date, description, GST breakdown, and match the supplier name using fuzzy logic.
+5. Review the extracted line items by clicking on the saved bill, and download a GST-compliant PDF anytime.
 
-### Authentication Endpoints
+---
 
-#### 1. Register User
-```http
-POST /api/auth/register
-Content-Type: application/json
+## 🌐 How to Use the Supplier Portal
+1. Go to the **Suppliers** page and click **Invite to Portal** on any supplier card.
+2. The supplier receives an email with a secure link valid for 48 hours.
+3. They set a password and log in at `/supplier/login` — completely separate from your owner account.
+4. Suppliers can view their bills, acknowledge receipt, raise disputes, and upload their own invoice copies.
+5. Any disputes raised appear instantly on your **Disputes** page (with a live unread badge) for you to resolve or reject.
 
-{
-  "username": "shopkeeper1",
-  "email": "shop@example.com",
-  "password": "password123"
-}
-```
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "6578a1b2c3d4e5f6g7h8i9j0",
-      "username": "shopkeeper1",
-      "email": "shop@example.com",
-      "createdAt": "2024-12-12T10:30:00.000Z"
-    }
-  }
-}
-```
+## 📈 How Cash Flow Forecasting Works
+Digibill scans your bill history per supplier. If a supplier has 3+ paid bills at a consistent ~30-day interval (±5 days), future occurrences are projected automatically. The Forecast page shows **Confirmed** outflows (actual pending bills) separately from **Predicted** outflows (recurring projections) across a 30 or 90-day window.
 
-#### 2. Login User
-```http
-POST /api/auth/login
-Content-Type: application/json
+---
 
-{
-  "email": "shop@example.com",
-  "password": "password123"
-}
-```
+## 🤝 Contributing
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "6578a1b2c3d4e5f6g7h8i9j0",
-      "username": "shopkeeper1",
-      "email": "shop@example.com",
-      "createdAt": "2024-12-12T10:30:00.000Z"
-    }
-  }
-}
-```
-
-#### 3. Get Current User
-```http
-GET /api/auth/me
-Authorization: Bearer <token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "6578a1b2c3d4e5f6g7h8i9j0",
-      "username": "shopkeeper1",
-      "email": "shop@example.com",
-      "createdAt": "2024-12-12T10:30:00.000Z"
-    }
-  }
-}
-```
-
-#### 4. Verify Token
-```http
-POST /api/auth/verify-token
-Content-Type: application/json
-
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### Health Check
-```http
-GET /api/health
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Kirana Backend API is running",
-  "timestamp": "2024-12-12T10:30:00.000Z"
-}
-```
-
-## 🔐 Using Protected Routes
-
-For protected routes, include the JWT token in the Authorization header:
-
-```javascript
-// Example with fetch
-fetch('http://localhost:5000/api/auth/me', {
-  headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
-});
-
-// Example with axios
-axios.get('http://localhost:5000/api/auth/me', {
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
-});
-```
-
-## 📁 Project Structure
-
-```
-backend/
-├── config/
-│   └── db.js                 # MongoDB connection
-├── middleware/
-│   └── authMiddleware.js     # JWT authentication middleware
-├── models/
-│   ├── User.js              # User schema with password hashing
-│   ├── Supplier.js          # Supplier schema with auto-calculations
-│   └── Bill.js              # Bill schema with supplier stat updates
-├── routes/
-│   └── auth.js              # Authentication routes
-├── .env.example             # Example environment variables
-├── .gitignore              # Git ignore rules
-├── package.json            # Dependencies and scripts
-└── server.js               # Main application entry point
-```
-
-## 🗃️ Database Schemas
-
-### User Schema
-```javascript
-{
-  username: String (unique, 3-30 chars),
-  email: String (unique, valid email),
-  passwordHash: String (hashed with bcrypt),
-  timestamps: true
-}
-```
-
-### Supplier Schema
-```javascript
-{
-  name: String (required),
-  phone: String (10 digits),
-  address: String,
-  createdBy: ObjectId (ref: User),
-  totalSpend: Number (auto-calculated),
-  pendingAmount: Number (auto-calculated),
-  totalBills: Number (auto-calculated),
-  lastPurchaseDate: Date,
-  timestamps: true
-}
-```
-
-### Bill Schema
-```javascript
-{
-  supplierId: ObjectId (ref: Supplier),
-  amount: Number (required),
-  date: Date,
-  description: String,
-  isPaid: Boolean (default: false),
-  dueDate: Date,
-  createdBy: ObjectId (ref: User),
-  items: [{
-    name: String,
-    quantity: Number,
-    price: Number,
-    unit: String
-  }],
-  imageUrl: String,
-  paidDate: Date,
-  timestamps: true
-}
-```
-
-## 🔧 Next Steps
-
-To complete the backend, you should add:
-
-1. **Supplier Routes** (`routes/suppliers.js`)
-   - GET /api/suppliers - List all suppliers
-   - POST /api/suppliers - Create new supplier
-   - GET /api/suppliers/:id - Get single supplier
-   - PUT /api/suppliers/:id - Update supplier
-   - DELETE /api/suppliers/:id - Delete supplier
-
-2. **Bill Routes** (`routes/bills.js`)
-   - GET /api/bills - List all bills
-   - POST /api/bills - Create new bill
-   - GET /api/bills/:id - Get single bill
-   - PUT /api/bills/:id - Update bill
-   - PUT /api/bills/:id/pay - Mark bill as paid
-   - DELETE /api/bills/:id - Delete bill
-
-3. **Analytics Routes** (`routes/analytics.js`)
-   - GET /api/analytics/dashboard - Dashboard statistics
-   - GET /api/analytics/monthly - Monthly spending data
-   - GET /api/analytics/suppliers - Supplier breakdown
-
-4. **Image Upload** (using multer or similar)
-
-## 🧪 Testing the API
-
-You can test the API using:
-
-1. **Thunder Client** (VS Code extension)
-2. **Postman**
-3. **cURL**
-4. **Your React frontend**
-
-Example cURL command:
-```bash
-# Register
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"test","email":"test@example.com","password":"test123"}'
-
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"test123"}'
-```
-
-## 🛡️ Security Features
-
-- Password hashing with bcryptjs (10 salt rounds)
-- JWT tokens with configurable expiration
-- Input validation and sanitization
-- CORS configuration
-- Environment variable protection
-- Sensitive data excluded from JSON responses
-
-## 📝 License
-
-ISC
-
-## 👨‍💻 Author
-
-Kirana Store Management System
+## 📄 License
+This project is licensed under the MIT License. Copyright (c) 2026 Vineet Vardhan.
