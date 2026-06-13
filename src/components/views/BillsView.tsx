@@ -49,6 +49,7 @@ export function BillsView() {
     amount: "",
     description: "",
     dueDate: "",
+    items: [] as any[],
   });
 
   // Track which fields the user has manually edited (so OCR doesn't overwrite them)
@@ -218,6 +219,7 @@ export function BillsView() {
         date: new Date().toISOString(),
         dueDate: newBill.dueDate || undefined,
         description: newBill.description || undefined,
+        items: newBill.items.length > 0 ? newBill.items : undefined,
       });
 
       console.log('Bill created successfully:', response.data.bill);
@@ -227,7 +229,7 @@ export function BillsView() {
         return [response.data.bill, ...newBills];
       });
       
-      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "" });
+      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [] });
       userEditedFields.current.clear();
       cleanupOCR();
       setIsDialogOpen(false);
@@ -245,7 +247,7 @@ export function BillsView() {
   const handleDialogChange = (open: boolean) => {
     setIsDialogOpen(open);
     if (!open) {
-      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "" });
+      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [] });
       userEditedFields.current.clear();
       cleanupOCR();
     }
@@ -399,6 +401,23 @@ export function BillsView() {
                     )}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Line Items (Optional)</Label>
+                  <div className="bg-background/50 rounded-lg p-2 border border-border/40">
+                    <GSTLineItemEditor
+                      items={newBill.items}
+                      onChange={(newItems) => setNewBill({ ...newBill, items: newItems as any })}
+                      onTotalsChange={(totals) => {
+                        if (totals.grandTotal > 0) {
+                          setNewBill(prev => ({ ...prev, amount: totals.grandTotal.toString() }));
+                          userEditedFields.current.add('amount');
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <Button 
                   className="w-full h-11 text-base" 
                   onClick={handleAddBill}
