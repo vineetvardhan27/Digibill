@@ -1,4 +1,5 @@
 import { GSTLineItem, GSTRate, GSTType } from './gst';
+export * from './connection';
 
 export interface User {
   id?: string; // For compatibility

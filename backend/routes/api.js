@@ -509,10 +509,13 @@ router.post(
   '/bills',
   [
     body('supplierId')
-      .notEmpty()
-      .withMessage('Supplier ID is required')
+      .optional()
       .isMongoId()
       .withMessage('Invalid supplier ID'),
+    body('connectionId')
+      .optional()
+      .isMongoId()
+      .withMessage('Invalid connection ID'),
     body('amount')
       .isFloat({ min: 0 })
       .withMessage('Amount must be a positive number'),
@@ -562,24 +565,51 @@ router.post(
         });
       }
 
-      const { supplierId, amount, date, description, isPaid = false, dueDate, items, imageUrl } = req.body;
+      const { supplierId, connectionId, amount, date, description, isPaid = false, dueDate, items, imageUrl } = req.body;
 
-      // Verify supplier exists and belongs to user
-      const supplier = await Supplier.findOne({
-        _id: supplierId,
-        createdBy: req.user._id
-      });
-
-      if (!supplier) {
-        return res.status(404).json({
+      if (!supplierId && !connectionId) {
+        return res.status(400).json({
           success: false,
-          message: 'Supplier not found'
+          message: 'Either supplierId or connectionId is required'
         });
+      }
+
+      if (supplierId) {
+        // Verify supplier exists and belongs to user
+        const supplier = await Supplier.findOne({
+          _id: supplierId,
+          createdBy: req.user._id
+        });
+
+        if (!supplier) {
+          return res.status(404).json({
+            success: false,
+            message: 'Supplier not found'
+          });
+        }
+      }
+
+      if (connectionId) {
+        // Dynamic import to avoid circular dependency
+        const Connection = (await import('../models/Connection.js')).default;
+        const connection = await Connection.findOne({
+          _id: connectionId,
+          shopOwnerId: req.user._id,
+          status: 'connected'
+        });
+
+        if (!connection) {
+          return res.status(404).json({
+            success: false,
+            message: 'Active connection not found'
+          });
+        }
       }
 
       // Create bill
       const bill = new Bill({
-        supplierId,
+        supplierId: supplierId || undefined,
+        connectionId: connectionId || undefined,
         amount,
         date: date || new Date(),
         description,
@@ -593,33 +623,43 @@ router.post(
 
       await bill.save();
 
-      // Update supplier stats
-      // totalSpend always increases
-      supplier.totalSpend += amount;
-      
-      // If bill is unpaid, increase pendingAmount
-      if (!isPaid) {
-        supplier.pendingAmount += amount;
+      // Update supplier stats if supplierId is provided
+      if (supplierId) {
+        const supplier = await Supplier.findById(supplierId);
+        if (supplier) {
+          supplier.totalSpend += amount;
+          if (!isPaid) {
+            supplier.pendingAmount += amount;
+          }
+          supplier.totalBills += 1;
+          if (!supplier.lastPurchaseDate || new Date(date || Date.now()) > supplier.lastPurchaseDate) {
+            supplier.lastPurchaseDate = date || new Date();
+          }
+          await supplier.save();
+        }
       }
 
-      // Increment bill count
-      supplier.totalBills += 1;
-
-      // Update last purchase date
-      if (!supplier.lastPurchaseDate || new Date(date || Date.now()) > supplier.lastPurchaseDate) {
-        supplier.lastPurchaseDate = date || new Date();
-      }
-
-      await supplier.save();
-
-      // Populate bill with supplier info and transform for frontend
-      const populatedBill = await Bill.findById(bill._id)
+      // Populate bill with supplier/connection info and transform for frontend
+      let populatedBill = await Bill.findById(bill._id)
         .populate('supplierId', 'name phone address')
+        .populate({
+          path: 'connectionId',
+          populate: { path: 'supplierAccountId', select: 'businessName ownerName phone location' }
+        })
         .lean();
       
       // Transform for frontend compatibility - add supplier field
-      if (populatedBill && populatedBill.supplierId) {
-        populatedBill.supplier = populatedBill.supplierId;
+      if (populatedBill) {
+        if (populatedBill.supplierId) {
+          populatedBill.supplier = populatedBill.supplierId;
+        } else if (populatedBill.connectionId && populatedBill.connectionId.supplierAccountId) {
+          populatedBill.supplier = {
+            _id: populatedBill.connectionId._id,
+            name: populatedBill.connectionId.supplierAccountId.businessName || populatedBill.connectionId.supplierAccountId.ownerName,
+            phone: populatedBill.connectionId.supplierAccountId.phone,
+            address: populatedBill.connectionId.supplierAccountId.location?.city 
+          };
+        }
       }
 
       res.status(201).json({
@@ -687,19 +727,34 @@ router.get('/bills', async (req, res) => {
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Get bills with pagination and populate supplier
+    // Get bills with pagination and populate supplier and connection
     const bills = await Bill.find(query)
       .populate('supplierId', 'name phone address')
+      .populate({
+        path: 'connectionId',
+        populate: { path: 'supplierAccountId', select: 'businessName ownerName phone location' }
+      })
       .sort(sortObj)
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
     
     // Transform bills for frontend compatibility - add supplier field
-    const transformedBills = bills.map(bill => ({
-      ...bill,
-      supplier: bill.supplierId // Add supplier field for frontend
-    }));
+    const transformedBills = bills.map(bill => {
+      let supplierData = bill.supplierId;
+      if (!supplierData && bill.connectionId && bill.connectionId.supplierAccountId) {
+        supplierData = {
+          _id: bill.connectionId._id,
+          name: bill.connectionId.supplierAccountId.businessName || bill.connectionId.supplierAccountId.ownerName,
+          phone: bill.connectionId.supplierAccountId.phone,
+          address: bill.connectionId.supplierAccountId.location?.city
+        };
+      }
+      return {
+        ...bill,
+        supplier: supplierData
+      };
+    });
 
     // Get total count
     const total = await Bill.countDocuments(query);
@@ -763,6 +818,66 @@ router.get('/bills', async (req, res) => {
       message: 'Server error while fetching bills',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// @route   GET /api/bills/disputes
+// @desc    Get all disputes for the owner's bills
+// @access  Private
+router.get('/bills/disputes', async (req, res) => {
+  try {
+    const { status = 'open', connectionId } = req.query;
+    
+    // Lazy load the model to avoid circular/early imports if any
+    const BillDispute = (await import('../models/BillDispute.js')).default;
+    
+    let query = { ownerId: req.user._id, status };
+    
+    if (connectionId) {
+      const Bill = (await import('../models/Bill.js')).default;
+      const bills = await Bill.find({ connectionId }).select('_id');
+      query.billId = { $in: bills.map(b => b._id) };
+    }
+
+    const disputes = await BillDispute.find(query)
+      .populate('billId', 'amount description')
+      .populate('supplierId', 'name portalEmail')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, data: disputes });
+  } catch (error) {
+    console.error('Get disputes error:', error);
+    res.status(500).json({ success: false, message: 'Server error while fetching disputes' });
+  }
+});
+
+// @route   PATCH /api/bills/disputes/:disputeId
+// @desc    Respond to a dispute
+// @access  Private
+router.patch('/bills/disputes/:disputeId', async (req, res) => {
+  try {
+    const { status, ownerNote } = req.body;
+    
+    if (!['resolved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const BillDispute = (await import('../models/BillDispute.js')).default;
+
+    const dispute = await BillDispute.findOneAndUpdate(
+      { _id: req.params.disputeId, ownerId: req.user._id },
+      { status, ownerNote: ownerNote ? ownerNote.substring(0, 500) : undefined },
+      { new: true }
+    );
+
+    if (!dispute) {
+      return res.status(404).json({ success: false, message: 'Dispute not found' });
+    }
+
+    res.status(200).json({ success: true, data: dispute });
+  } catch (error) {
+    console.error('Update dispute error:', error);
+    res.status(500).json({ success: false, message: 'Server error while updating dispute' });
   }
 });
 
@@ -1041,56 +1156,6 @@ router.delete('/bills/:id', async (req, res) => {
   }
 });
 
-// @route   GET /api/bills/disputes
-// @desc    Get all disputes for the owner's bills
-// @access  Private
-router.get('/bills/disputes', async (req, res) => {
-  try {
-    const { status = 'open' } = req.query;
-    
-    // Lazy load the model to avoid circular/early imports if any
-    const BillDispute = (await import('../models/BillDispute.js')).default;
-    
-    const disputes = await BillDispute.find({ ownerId: req.user._id, status })
-      .populate('billId', 'amount description')
-      .populate('supplierId', 'name portalEmail')
-      .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, data: disputes });
-  } catch (error) {
-    console.error('Get disputes error:', error);
-    res.status(500).json({ success: false, message: 'Server error while fetching disputes' });
-  }
-});
-
-// @route   PATCH /api/bills/disputes/:disputeId
-// @desc    Respond to a dispute
-// @access  Private
-router.patch('/bills/disputes/:disputeId', async (req, res) => {
-  try {
-    const { status, ownerNote } = req.body;
-    
-    if (!['resolved', 'rejected'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status' });
-    }
-
-    const BillDispute = (await import('../models/BillDispute.js')).default;
-
-    const dispute = await BillDispute.findOneAndUpdate(
-      { _id: req.params.disputeId, ownerId: req.user._id },
-      { status, ownerNote: ownerNote ? ownerNote.substring(0, 500) : undefined },
-      { new: true }
-    );
-
-    if (!dispute) {
-      return res.status(404).json({ success: false, message: 'Dispute not found' });
-    }
-
-    res.status(200).json({ success: true, data: dispute });
-  } catch (error) {
-    console.error('Update dispute error:', error);
-    res.status(500).json({ success: false, message: 'Server error while updating dispute' });
-  }
-});
 
 export default router;

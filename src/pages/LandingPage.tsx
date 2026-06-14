@@ -111,9 +111,12 @@ export function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">Sign in</Link>
-            <Button asChild>
-              <Link to="/register">Start free</Link>
+            <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">Shop Login</Link>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/supplier/login">Supplier Login</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/register">Create Shop</Link>
             </Button>
           </div>
 
@@ -130,9 +133,10 @@ export function LandingPage() {
         <a href="#pricing" className="text-xl font-semibold" onClick={toggleMenu}>Pricing</a>
         <Link to="/supplier/login" className="text-xl font-semibold" onClick={toggleMenu}>Supplier Portal</Link>
         <div className="h-px bg-border my-2" />
-        <Link to="/login" className="text-xl font-medium text-muted-foreground" onClick={toggleMenu}>Sign in</Link>
+        <Link to="/login" className="text-xl font-medium text-muted-foreground" onClick={toggleMenu}>Shop Login</Link>
+        <Link to="/supplier/login" className="text-xl font-medium text-muted-foreground" onClick={toggleMenu}>Supplier Login</Link>
         <Button asChild size="lg" className="w-full mt-4">
-          <Link to="/register" onClick={toggleMenu}>Start free</Link>
+          <Link to="/register" onClick={toggleMenu}>Create Shop</Link>
         </Button>
       </div>
 
@@ -156,10 +160,10 @@ export function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
               <Button asChild size="lg" className="h-12 px-8 text-base shadow-glow">
-                <Link to="/register">Start for free →</Link>
+                <Link to="/register">I'm a Shop Owner</Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="h-12 px-8 text-base">
-                <a href="#how-it-works">See how it works</a>
+                <Link to="/supplier/login">I'm a Supplier</Link>
               </Button>
             </div>
             <div className="flex items-center justify-center lg:justify-start gap-4 text-sm text-muted-foreground font-medium flex-wrap">
@@ -395,11 +399,16 @@ export function LandingPage() {
         <div className="max-w-3xl mx-auto px-4">
           <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-6">Stop losing bills. Start tonight.</h2>
           <p className="text-lg text-muted-foreground mb-8">Free to start. No credit card. Takes 10 minutes to set up your first supplier.</p>
-          <Button asChild size="lg" className="h-14 px-8 text-lg shadow-xl shadow-primary/20 mb-6">
-            <Link to="/register">Create your free account →</Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-6">
+            <Button asChild size="lg" className="h-14 px-8 text-lg shadow-xl shadow-primary/20">
+              <Link to="/register">Join as Shop Owner</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="h-14 px-8 text-lg bg-background">
+              <Link to="/supplier/login">Join as Supplier</Link>
+            </Button>
+          </div>
           <p className="text-sm font-medium text-muted-foreground">
-            Already have an account? <Link to="/login" className="text-primary hover:underline font-semibold">Sign in</Link>
+            Already have an account? <Link to="/login" className="text-primary hover:underline font-semibold">Sign in to your Shop</Link> or <Link to="/supplier/login" className="text-primary hover:underline font-semibold">Supplier Portal</Link>
           </p>
         </div>
       </section>

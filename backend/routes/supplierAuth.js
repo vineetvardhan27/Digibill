@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { body, validationResult } from 'express-validator';
-import Supplier from '../models/Supplier.js';
+import SupplierAccount from '../models/SupplierAccount.js';
 import supplierAuth from '../middleware/supplierAuth.js';
 
 const router = express.Router();
@@ -77,13 +77,15 @@ router.get('/validate-token', async (req, res, next) => {
   }
 });
 
-// @route   POST /api/supplier-auth/accept-invite
-// @desc    Accept invitation and set password
+// @route   POST /api/supplier-auth/register
+// @desc    Register a new supplier account
 // @access  Public
-router.post('/accept-invite', [
-  body('token', 'Token is required').notEmpty(),
+router.post('/register', [
+  body('businessName', 'Business name is required').notEmpty(),
+  body('ownerName', 'Owner name is required').notEmpty(),
+  body('email', 'Please include a valid email').isEmail(),
   body('password', 'Please enter a password with 8 or more characters').isLength({ min: 8 }),
-  body('confirmPassword', 'Confirm password is required').notEmpty()
+  body('phone', 'Phone number is required').notEmpty()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -91,31 +93,45 @@ router.post('/accept-invite', [
       return res.status(400).json({ success: false, errors: errors.array(), message: errors.array()[0].msg });
     }
 
-    const { token, password, confirmPassword } = req.body;
+    const { businessName, ownerName, email, password, phone, category } = req.body;
 
-    if (password !== confirmPassword) {
-      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    let supplierAccount = await SupplierAccount.findOne({ email: email.toLowerCase() });
+    if (supplierAccount) {
+      return res.status(400).json({ success: false, message: 'Supplier with this email already exists' });
     }
 
-    const supplier = await Supplier.findOne({
-      inviteToken: token,
-      inviteTokenExpiry: { $gt: Date.now() },
-      inviteStatus: 'invited'
+    supplierAccount = new SupplierAccount({
+      businessName,
+      ownerName,
+      email,
+      password,
+      phone,
+      category
     });
 
-    if (!supplier) {
-      return res.status(400).json({ success: false, message: 'Invite link is invalid or has expired' });
-    }
+    await supplierAccount.save();
 
-    // Set new password (pre-save hook will hash it)
-    supplier.portalPassword = password;
-    supplier.inviteToken = null;
-    supplier.inviteTokenExpiry = null;
-    supplier.inviteStatus = 'active';
+    // Generate JWT
+    const payload = {
+      id: supplierAccount._id,
+      role: 'supplier'
+    };
 
-    await supplier.save();
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRE || '7d'
+    });
 
-    res.status(200).json({ success: true, message: 'Account activated. Please log in.' });
+    res.status(201).json({
+      success: true,
+      token,
+      supplier: {
+        id: supplierAccount._id,
+        businessName: supplierAccount.businessName,
+        ownerName: supplierAccount.ownerName,
+        email: supplierAccount.email,
+        profileComplete: supplierAccount.profileComplete
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -136,26 +152,25 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // Find active supplier by portalEmail, explicitly selecting portalPassword
-    const supplier = await Supplier.findOne({ 
-      portalEmail: email.toLowerCase(),
-      inviteStatus: 'active'
-    }).select('+portalPassword');
+    // Find active supplierAccount by email
+    const supplierAccount = await SupplierAccount.findOne({ 
+      email: email.toLowerCase(),
+      isActive: true
+    }).select('+password');
 
-    if (!supplier) {
+    if (!supplierAccount) {
       return res.status(400).json({ success: false, message: 'Invalid credentials or account inactive' });
     }
 
-    const isMatch = await supplier.comparePassword(password);
+    const isMatch = await supplierAccount.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Generate JWT
     const payload = {
-      id: supplier._id,
-      role: 'supplier',
-      ownerId: supplier.createdBy // The user who created this supplier
+      id: supplierAccount._id,
+      role: 'supplier'
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -163,17 +178,18 @@ router.post('/login', [
     });
 
     // Update last login
-    supplier.lastLogin = new Date();
-    await supplier.save();
+    supplierAccount.lastLogin = new Date();
+    await supplierAccount.save();
 
     res.status(200).json({
       success: true,
       token,
       supplier: {
-        id: supplier._id,
-        name: supplier.name,
-        portalEmail: supplier.portalEmail,
-        inviteStatus: supplier.inviteStatus
+        id: supplierAccount._id,
+        businessName: supplierAccount.businessName,
+        ownerName: supplierAccount.ownerName,
+        email: supplierAccount.email,
+        profileComplete: supplierAccount.profileComplete
       }
     });
   } catch (error) {
@@ -209,21 +225,21 @@ router.post('/forgot-password', [
 
     const { email } = req.body;
 
-    const supplier = await Supplier.findOne({ 
-      portalEmail: email.toLowerCase(),
-      inviteStatus: 'active'
+    const supplierAccount = await SupplierAccount.findOne({ 
+      email: email.toLowerCase(),
+      isActive: true
     });
 
-    if (supplier) {
-      // Generate reset token (using inviteToken field since it's meant for auth tokens)
+    if (supplierAccount) {
+      // Generate reset token
       const resetToken = crypto.randomBytes(32).toString('hex');
       
-      supplier.inviteToken = resetToken;
-      supplier.inviteTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
-      await supplier.save();
+      supplierAccount.resetToken = resetToken;
+      supplierAccount.resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      await supplierAccount.save();
 
       // Send email
-      await sendResetEmail(supplier.portalEmail, resetToken);
+      await sendResetEmail(supplierAccount.email, resetToken);
     }
 
     // Always return 200
@@ -248,20 +264,20 @@ router.post('/reset-password', [
 
     const { token, password } = req.body;
 
-    const supplier = await Supplier.findOne({
-      inviteToken: token,
-      inviteTokenExpiry: { $gt: Date.now() },
-      inviteStatus: 'active'
+    const supplierAccount = await SupplierAccount.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: Date.now() },
+      isActive: true
     });
 
-    if (!supplier) {
+    if (!supplierAccount) {
       return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
     }
 
-    supplier.portalPassword = password;
-    supplier.inviteToken = null;
-    supplier.inviteTokenExpiry = null;
-    await supplier.save();
+    supplierAccount.password = password;
+    supplierAccount.resetToken = undefined;
+    supplierAccount.resetTokenExpiry = undefined;
+    await supplierAccount.save();
 
     res.status(200).json({ success: true, message: 'Password has been successfully reset' });
   } catch (error) {

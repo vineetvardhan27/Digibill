@@ -14,14 +14,22 @@ import NotFound from "./pages/NotFound";
 import { SupplierAuthProvider } from "@/contexts/SupplierAuthContext";
 import { SupplierProtectedRoute } from "@/components/supplier/SupplierProtectedRoute";
 import { SupplierLayout } from "@/layouts/SupplierLayout";
+import { SupplierAccountLayout } from "@/layouts/SupplierAccountLayout";
 import { AcceptInvitePage } from "@/pages/supplier/AcceptInvitePage";
 import { SupplierLoginPage } from "@/pages/supplier/SupplierLoginPage";
+import { SupplierRegisterPage } from "@/pages/supplier/SupplierRegisterPage";
 import { SupplierForgotPasswordPage } from "@/pages/supplier/SupplierForgotPasswordPage";
 import { SupplierResetPasswordPage } from "@/pages/supplier/SupplierResetPasswordPage";
-import { SupplierDashboardPage } from "@/pages/supplier/SupplierDashboardPage";
+import { SupplierAccountDashboard } from "@/pages/supplier-account/SupplierAccountDashboard";
 import { SupplierBillsPage } from "@/pages/supplier/SupplierBillsPage";
 import { SupplierInvoicesPage } from "@/pages/supplier/SupplierInvoicesPage";
 import { SupplierActivityPage } from "@/pages/supplier/SupplierActivityPage";
+import { SupplierProfilePage } from "@/pages/supplier-account/SupplierProfilePage";
+import ShopDirectoryPage from "@/pages/supplier-account/ShopDirectoryPage";
+import SupplierPendingConnectionsPage from "@/pages/supplier-account/SupplierPendingConnectionsPage";
+import { MyShopsPage } from "@/pages/supplier-account/MyShopsPage";
+import { ShopConnectionDetailPage } from "@/pages/supplier-account/ShopConnectionDetailPage";
+import { ConnectionDetailPage } from "@/pages/ConnectionDetailPage";
 
 const queryClient = new QueryClient();
 
@@ -45,17 +53,47 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/directory"
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/connections/pending"
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/suppliers/:id"
+              element={
+                <ProtectedRoute>
+                  <ConnectionDetailPage />
+                </ProtectedRoute>
+              }
+            />
             {/* SUPPLIER PORTAL ROUTES */}
             <Route path="/supplier/accept-invite" element={<AcceptInvitePage />} />
             <Route path="/supplier/login" element={<SupplierLoginPage />} />
+            <Route path="/supplier/register" element={<SupplierRegisterPage />} />
             <Route path="/supplier/forgot-password" element={<SupplierForgotPasswordPage />} />
             <Route path="/supplier/reset-password" element={<SupplierResetPasswordPage />} />
             
-            <Route path="/supplier" element={<SupplierProtectedRoute><SupplierLayout /></SupplierProtectedRoute>}>
-              <Route path="dashboard" element={<SupplierDashboardPage />} />
+            <Route path="/supplier" element={<SupplierProtectedRoute><SupplierAccountLayout /></SupplierProtectedRoute>}>
+              <Route path="dashboard" element={<SupplierAccountDashboard />} />
               <Route path="bills" element={<SupplierBillsPage />} />
               <Route path="invoices" element={<SupplierInvoicesPage />} />
               <Route path="activity" element={<SupplierActivityPage />} />
+              <Route path="directory" element={<ShopDirectoryPage />} />
+              <Route path="connections/pending" element={<SupplierPendingConnectionsPage />} />
+              <Route path="shops" element={<MyShopsPage />} />
+              <Route path="shops/:id" element={<ShopConnectionDetailPage />} />
+              <Route path="profile" element={<SupplierProfilePage />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

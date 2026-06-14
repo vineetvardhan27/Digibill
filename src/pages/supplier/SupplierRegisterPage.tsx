@@ -7,13 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useSupplierAuth } from '@/contexts/SupplierAuthContext';
+import { toast } from 'sonner';
 
-export function SupplierLoginPage() {
+export function SupplierRegisterPage() {
   const navigate = useNavigate();
   const { login } = useSupplierAuth();
   
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [formData, setFormData] = useState({
+    businessName: '',
+    ownerName: '',
+    email: '',
+    password: '',
+    phone: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -24,24 +30,29 @@ export function SupplierLoginPage() {
 
     try {
       setIsSubmitting(true);
-      const res = await axios.post('http://localhost:5000/api/supplier-auth/login', {
-        email,
-        password
-      });
+      const res = await axios.post('http://localhost:5000/api/supplier-auth/register', formData);
 
       if (res.data.success) {
         login(res.data.token, res.data.supplier);
         navigate('/supplier/dashboard');
+        toast.success("Account created successfully!");
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      setError(err.response?.data?.message || 'Failed to create account');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.id]: e.target.value
+    });
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4 py-12">
       <div className="mb-8 flex flex-col items-center gap-2">
         <div className="flex items-center gap-2 mb-2">
           <div className="bg-primary p-2 rounded-xl">
@@ -58,9 +69,9 @@ export function SupplierLoginPage() {
 
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="space-y-1 text-center pb-6">
-          <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Enter your email and password to access your portal
+            Join the independent supplier network
           </p>
         </CardHeader>
         
@@ -74,33 +85,58 @@ export function SupplierLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="businessName">Business Name</Label>
+              <Input
+                id="businessName"
+                value={formData.businessName}
+                onChange={handleChange}
+                required
+                placeholder="Ravi Traders"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="ownerName">Your Name</Label>
+              <Input
+                id="ownerName"
+                value={formData.ownerName}
+                onChange={handleChange}
+                required
+                placeholder="Ravi Kumar"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={handleChange}
                 required
                 placeholder="name@example.com"
               />
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link 
-                  to="/supplier/forgot-password" 
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                placeholder="+91 9876543210"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={handleChange}
                   required
                   className="pr-10"
                 />
@@ -116,16 +152,16 @@ export function SupplierLoginPage() {
 
             <Button type="submit" className="w-full mt-2" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Sign In
+              Create Account
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 border-t border-border/50 pt-6">
           <div className="text-center w-full mb-2">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/supplier/register" className="font-semibold text-primary hover:underline">
-                Register here
+              Already have an account?{' '}
+              <Link to="/supplier/login" className="font-semibold text-primary hover:underline">
+                Sign in
               </Link>
             </p>
           </div>

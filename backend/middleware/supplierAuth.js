@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import Supplier from '../models/Supplier.js';
+import SupplierAccount from '../models/SupplierAccount.js';
 
 const supplierAuth = async (req, res, next) => {
   try {
@@ -28,30 +28,20 @@ const supplierAuth = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       // Check role
-      if (decoded.role !== 'supplier') {
+      if (decoded.role !== 'supplier' && decoded.role !== 'supplier_account') {
         return res.status(403).json({
           success: false,
           message: 'Access denied. Supplier permissions required.'
         });
       }
 
-      // Get supplier from database (excluding password and tokens)
-      const supplier = await Supplier.findById(decoded.id).select('-portalPassword -inviteToken');
+      // Get supplier from database
+      const supplier = await SupplierAccount.findById(decoded.id).select('-password -resetToken');
       
-      if (!supplier || supplier.inviteStatus !== 'active') {
+      if (!supplier || !supplier.isActive) {
         return res.status(401).json({
           success: false,
-          message: 'Supplier not found or not active. Authorization denied.'
-        });
-      }
-
-      // Check if the owner has the supplier portal enabled
-      const User = (await import('../models/User.js')).default;
-      const owner = await User.findById(supplier.createdBy);
-      if (!owner || !owner.supplierPortalEnabled) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. The shop owner has disabled the supplier portal.'
+          message: 'Supplier account not found or not active. Authorization denied.'
         });
       }
 

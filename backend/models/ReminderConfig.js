@@ -47,8 +47,8 @@ const reminderConfigSchema = new mongoose.Schema(
   }
 );
 
-// Index for quick lookups by userId
-reminderConfigSchema.index({ userId: 1 });
+// Index for quick lookups by userId (already indexed by unique: true)
+// removed duplicate: reminderConfigSchema.index({ userId: 1 });
 
 // Validate that appropriate contact info is provided for the selected channel
 reminderConfigSchema.pre('validate', function (next) {

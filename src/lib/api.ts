@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Supplier, Bill, DashboardStats, MonthlyData, SupplierSpend } from '@/types';
 import type { HealthScore, HealthSummaryItem } from '@/types/health';
 import type { ForecastResponse } from '@/types/forecast';
+import supplierApiClient from './supplierApi';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -169,12 +170,121 @@ export const supplierAPI = {
   },
 };
 
+// ==================== CONNECTIONS API ====================
+
+export const connectionAPI = {
+  getConnections: async (params?: { status?: string }) => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: import('@/types').Connection[];
+    }>('/connections', { params });
+    return response.data;
+  },
+
+  getPending: async () => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: import('@/types').ConnectionRequest[];
+    }>('/connections/pending');
+    return response.data;
+  },
+
+  respond: async (id: string, action: 'accept' | 'reject') => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data: import('@/types').Connection;
+    }>(`/connections/${id}/respond`, { action });
+    return response.data;
+  },
+
+  disconnect: async (id: string) => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      message: string;
+    }>(`/connections/${id}/disconnect`);
+    return response.data;
+  },
+
+  updateNotes: async (id: string, shopNotes: string) => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data: import('@/types').Connection;
+    }>(`/connections/${id}/notes`, { shopNotes });
+    return response.data;
+  }
+};
+
+export const supplierConnectionAPI = {
+  getConnections: async (params?: { status?: string }) => {
+    const response = await supplierApiClient.get<{
+      success: boolean;
+      data: import('@/types').Connection[];
+    }>('/supplier-connections', { params });
+    return response.data;
+  },
+
+  getPending: async () => {
+    const response = await supplierApiClient.get<{
+      success: boolean;
+      data: import('@/types').ConnectionRequest[];
+    }>('/supplier-connections/pending');
+    return response.data;
+  },
+
+  respond: async (id: string, action: 'accept' | 'reject') => {
+    const response = await supplierApiClient.patch<{
+      success: boolean;
+      data: import('@/types').Connection;
+    }>(`/supplier-connections/${id}/respond`, { action });
+    return response.data;
+  },
+
+  disconnect: async (id: string) => {
+    const response = await supplierApiClient.patch<{
+      success: boolean;
+      message: string;
+    }>(`/supplier-connections/${id}/disconnect`);
+    return response.data;
+  },
+
+  getDashboard: async () => {
+    const response = await supplierApiClient.get<{
+      success: boolean;
+      data: {
+        connectedShopsCount: number;
+        totalBills: number;
+        totalOwedToYou: number;
+        totalReceived: number;
+        recentActivity: any[];
+      };
+    }>('/supplier-connections/dashboard');
+    return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await supplierApiClient.get<{
+      success: boolean;
+      data: any;
+    }>('/supplier-connections/profile');
+    return response.data;
+  },
+
+  updateProfile: async (data: any) => {
+    const response = await supplierApiClient.patch<{
+      success: boolean;
+      data: any;
+    }>('/supplier-connections/profile', data);
+    return response.data;
+  }
+};
+
 // ==================== BILL API ====================
 
 export const billAPI = {
   // Get all bills with optional filters
   getBills: async (params?: {
-    supplierId?: string;
+    connectionId?: string;
+    supplierId?: string; // DEPRECATED
     isPaid?: boolean;
     startDate?: string;
     endDate?: string;
@@ -224,7 +334,8 @@ export const billAPI = {
 
   // Create new bill
   createBill: async (data: {
-    supplierId: string;
+    connectionId?: string;
+    supplierId?: string; // DEPRECATED
     amount: number;
     date: string;
     dueDate?: string;
@@ -274,11 +385,17 @@ export const billAPI = {
   },
 
   // Get disputes
-  getDisputes: async (status: string = 'open') => {
+  getDisputes: async (params?: { status?: string; connectionId?: string }) => {
+    const statusStr = typeof params === 'string' ? params : (params?.status || 'open');
+    const connectionId = typeof params === 'object' ? params.connectionId : undefined;
+    
+    const queryParams: any = { status: statusStr };
+    if (connectionId) queryParams.connectionId = connectionId;
+
     const response = await apiClient.get<{
       success: boolean;
       data: import('@/types').BillDispute[];
-    }>('/bills/disputes', { params: { status } });
+    }>('/bills/disputes', { params: queryParams });
     return response.data;
   },
 

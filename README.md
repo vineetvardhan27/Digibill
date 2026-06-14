@@ -15,6 +15,7 @@ Digibill is a comprehensive B2B supplier and bill management platform designed f
 * 📄 **Digital Billing & Full GST Support**: Log bills with interactive line items. Built-in support for Indian GST slabs, HSN codes, IGST/CGST/SGST breakdowns, and live total calculations.
 * 🤖 **AI Bill Scanning (OCR)**: Instantly extract bill details and GST data by uploading a photo using the **Groq Vision API** (`meta-llama/llama-4-scout-17b-16e-instruct`).
 * ⏰ **Smart Payment Reminders**: Automated daily cron jobs that send payment reminders 1-3 days before due dates via Email (Nodemailer) & WhatsApp (Twilio), with full send-log auditing.
+* 🤝 **B2B Network & Connection System**: Global directory for shops to discover verified suppliers. Send and receive connection requests, enabling suppliers to manage multiple connected shops through an independent account and dashboard.
 * 🌐 **Dedicated Supplier Portal (Auth & Invite)**: Send branded magic-link invites to suppliers. They get an isolated dashboard to view invoices, upload their own PDFs, acknowledge receipts, and raise formal disputes — completely free for suppliers.
 * 💼 **Bill Disputes Workflow**: Integrated system for shop owners to view a live dispute badge, review reasons, and resolve/reject disputes directly from their dashboard.
 * 📈 **Cash Flow Forecasting (30 & 90 Day)**: Detects recurring supplier bill patterns and visualizes confirmed vs. predicted upcoming outflows via interactive Recharts area charts.

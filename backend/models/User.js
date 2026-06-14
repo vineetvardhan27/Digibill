@@ -44,6 +44,14 @@ const userSchema = new mongoose.Schema(
     supplierPortalEnabled: {
       type: Boolean,
       default: false
+    },
+    location: {
+      city: { type: String, trim: true },
+      state: { type: String, trim: true }
+    },
+    categoriesOfInterest: {
+      type: [String],
+      default: []
     }
   },
   {

@@ -41,10 +41,15 @@ const billItemSchema = new mongoose.Schema({
 
 const billSchema = new mongoose.Schema(
   {
+    connectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Connection'
+    },
     supplierId: {
+      // DEPRECATED: use connectionId.populate('supplierAccountId') instead. Kept for migration rollback safety.
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Supplier',
-      required: [true, 'Supplier ID is required']
+      required: false
     },
     amount: {
       type: Number,

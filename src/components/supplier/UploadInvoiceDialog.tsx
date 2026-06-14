@@ -43,7 +43,7 @@ export function UploadInvoiceDialog({ isOpen, onClose, onSuccess }: UploadInvoic
   const fetchPendingBills = async () => {
     setIsLoadingBills(true);
     try {
-      const res = await supplierFetch<{ success: boolean; data: { bills: SupplierBill[] } }>('/supplier-portal/bills?status=pending&limit=50');
+      const res = await supplierFetch<{ success: boolean; data: { bills: SupplierBill[] } }>('/supplier-connections/bills?status=pending&limit=50');
       if (res.success) {
         setPendingBills(res.data.bills);
       }
@@ -89,7 +89,7 @@ export function UploadInvoiceDialog({ isOpen, onClose, onSuccess }: UploadInvoic
       setIsUploading(true);
       // We must use fetch directly here since axios handles FormData differently and we need to pass the token
       const token = localStorage.getItem('supplierToken');
-      const response = await fetch('http://localhost:5000/api/supplier-portal/invoices/upload', {
+      const response = await fetch('http://localhost:5000/api/supplier-connections/invoices/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

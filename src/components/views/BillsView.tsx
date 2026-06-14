@@ -27,14 +27,14 @@ import { formatCurrency, formatDate } from "@/lib/mockData";
 import { Bill, Supplier } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { billAPI, supplierAPI } from "@/lib/api";
+import { billAPI, supplierAPI, connectionAPI } from "@/lib/api";
 import { useOCRScan } from "@/hooks/useOCRScan";
 import { BillScanUploader } from "@/components/OCR/BillScanUploader";
 import { GSTLineItemEditor } from "@/components/bills/GSTLineItemEditor";
 import { Download } from "lucide-react";
 import { generateGSTInvoice } from "@/lib/pdfGenerator";
 
-export function BillsView() {
+export function BillsView({ connectionId, hideHeader }: { connectionId?: string; hideHeader?: boolean }) {
   const navigate = useNavigate();
   const [bills, setBills] = useState<Bill[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -191,6 +191,7 @@ export function BillsView() {
       const response = await billAPI.getBills({
         sortBy: "date",
         order: "desc",
+        ...(connectionId ? { connectionId } : {})
       });
       setBills(Array.isArray(response.data.bills) ? response.data.bills : []);
     } catch (error: any) {
@@ -204,11 +205,25 @@ export function BillsView() {
 
   const fetchSuppliers = async () => {
     try {
-      const response = await supplierAPI.getSuppliers();
-      console.log("Fetched suppliers:", response.data.suppliers);
-      setSuppliers(Array.isArray(response.data.suppliers) ? response.data.suppliers : []);
+      const [suppliersRes, connectionsRes] = await Promise.all([
+        supplierAPI.getSuppliers(),
+        connectionAPI.getConnections({ status: 'connected' })
+      ]);
+      
+      const localSuppliers = Array.isArray(suppliersRes.data.suppliers) ? suppliersRes.data.suppliers : [];
+      
+      // Transform connections into supplier-like objects
+      const connectedSuppliers = (connectionsRes.data || []).map(conn => ({
+        ...conn.supplierAccountId,
+        _id: conn._id,
+        id: conn._id,
+        isConnection: true,
+        name: conn.supplierAccountId?.businessName || conn.supplierAccountId?.ownerName || 'Connected Supplier',
+      }));
+
+      setSuppliers([...connectedSuppliers, ...localSuppliers]);
     } catch (error: any) {
-      console.error('Fetch suppliers error:', error);
+      console.error('Fetch suppliers/connections error:', error);
       toast.error(error.message || "Failed to fetch suppliers");
       setSuppliers([]);
     }
@@ -233,7 +248,7 @@ export function BillsView() {
   const handleAddBill = async () => {
     console.log("Form submission - Current newBill state:", newBill);
     
-    if (!newBill.supplierId || !newBill.supplierId.trim()) {
+    if (!connectionId && (!newBill.supplierId || !newBill.supplierId.trim())) {
       toast.error("Please select a supplier");
       return;
     }
@@ -251,14 +266,28 @@ export function BillsView() {
 
     try {
       setSubmitting(true);
-      const response = await billAPI.createBill({
-        supplierId: newBill.supplierId,
+      
+      // Check if the selected supplier is actually a connection
+      const selectedSupplier = suppliers.find(s => (s._id || s.id) === newBill.supplierId);
+      const isConnectionSelected = selectedSupplier && (selectedSupplier as any).isConnection;
+      
+      const payload: any = {
         amount: amountValue,
         date: new Date().toISOString(),
         dueDate: newBill.dueDate || undefined,
         description: newBill.description || undefined,
         items: newBill.items.length > 0 ? newBill.items : undefined,
-      });
+      };
+      
+      if (connectionId) {
+        payload.connectionId = connectionId;
+      } else if (isConnectionSelected) {
+        payload.connectionId = newBill.supplierId;
+      } else {
+        payload.supplierId = newBill.supplierId;
+      }
+
+      const response = await billAPI.createBill(payload);
 
       console.log('Bill created successfully:', response.data.bill);
       
@@ -311,10 +340,10 @@ export function BillsView() {
   };
 
   return (
-    <div className="min-h-screen">
-      <Header title="Bills" subtitle={`Manage your ${bills.length} bills and payments`} />
+    <div className={cn("min-h-screen", hideHeader ? "pt-2" : "")}>
+      {!hideHeader && <Header title="Bills" subtitle={`Manage your ${bills.length} bills and payments`} />}
 
-      <main className="px-8 py-6 space-y-6">
+      <main className={cn(hideHeader ? "" : "px-8 py-6", "space-y-6")}>
         {/* Action Buttons */}
         <div className="flex gap-4">
           <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
@@ -350,43 +379,45 @@ export function BillsView() {
                 </div>
 
                 {/* ─── Manual Form Fields ─────────────────────────────── */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Supplier *</Label>
-                  <Select
-                    value={newBill.supplierId}
-                    onValueChange={(value) => {
-                      userEditedFields.current.add('supplierId');
-                      setNewBill({ ...newBill, supplierId: value });
-                    }}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {suppliers.length === 0 ? (
-                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                          No suppliers found. Please add a supplier first.
-                        </div>
-                      ) : (
-                        <>
-                          {suppliers.map((supplier) => (
-                            <SelectItem 
-                              key={supplier._id || supplier.id} 
-                              value={supplier._id || supplier.id || ''}
-                            >
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {newBill.supplierId && (
-                    <p className="text-xs text-muted-foreground">
-                      Selected: {suppliers.find(s => (s._id || s.id) === newBill.supplierId)?.name || newBill.supplierId}
-                    </p>
-                  )}
-                </div>
+                {!connectionId && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Supplier *</Label>
+                    <Select
+                      value={newBill.supplierId}
+                      onValueChange={(value) => {
+                        userEditedFields.current.add('supplierId');
+                        setNewBill({ ...newBill, supplierId: value });
+                      }}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select supplier" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {suppliers.length === 0 ? (
+                          <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                            No suppliers found. Please add a supplier first.
+                          </div>
+                        ) : (
+                          <>
+                            {suppliers.map((supplier) => (
+                              <SelectItem 
+                                key={supplier._id || supplier.id} 
+                                value={supplier._id || supplier.id || ''}
+                              >
+                                {supplier.name}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {newBill.supplierId && (
+                      <p className="text-xs text-muted-foreground">
+                        Selected: {suppliers.find(s => (s._id || s.id) === newBill.supplierId)?.name || newBill.supplierId}
+                      </p>
+                    )}
+                  </div>
+                )}
 
 
                 <div className="space-y-2">

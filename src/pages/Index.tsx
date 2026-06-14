@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { DashboardView } from "@/components/views/DashboardView";
 import { SuppliersView } from "@/components/views/SuppliersView";
@@ -9,34 +9,43 @@ import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { ForecastView } from "@/components/views/ForecastView";
 import { DisputesPage } from "@/pages/DisputesPage";
+import SupplierDirectoryPage from "@/pages/SupplierDirectoryPage";
+import PendingConnectionsPage from "@/pages/PendingConnectionsPage";
 
 const Index = () => {
   const { tab } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const validTabs = ["dashboard", "suppliers", "bills", "scan", "analytics", "forecast", "settings", "disputes"];
+  const validTabs = ["dashboard", "connections", "bills", "scan", "analytics", "forecast", "settings", "disputes", "directory", "connections-pending"];
   
-  // Default to dashboard if no tab or invalid tab is provided
-  const activeTab = tab && validTabs.includes(tab) ? tab : "dashboard";
+  // Determine active tab based on pathname or tab param
+  let activeTab = "dashboard";
+  if (location.pathname === "/directory") activeTab = "directory";
+  else if (location.pathname === "/connections/pending") activeTab = "connections-pending";
+  else if (tab && validTabs.includes(tab)) activeTab = tab;
 
-  // If the user navigates to root "/", redirect them cleanly to "/dashboard" (optional but good practice)
+  // If the user navigates to root "/", redirect them cleanly to "/dashboard"
   useEffect(() => {
-    if (!tab) {
+    if (location.pathname === "/") {
       navigate("/dashboard", { replace: true });
-    } else if (!validTabs.includes(tab)) {
-      // If invalid tab, show NotFound by letting App.tsx handle it, or redirect
+    } else if (tab && !validTabs.includes(tab) && location.pathname !== "/directory" && location.pathname !== "/connections/pending") {
       navigate("/dashboard", { replace: true });
     }
-  }, [tab, navigate]);
+  }, [tab, location.pathname, navigate]);
 
   const handleTabChange = (newTab: string) => {
-    navigate(`/${newTab}`);
+    if (newTab === "connections-pending") {
+      navigate("/connections/pending");
+    } else {
+      navigate(`/${newTab}`);
+    }
   };
 
   const renderView = () => {
     switch (activeTab) {
       case "dashboard":
         return <DashboardView />;
-      case "suppliers":
+      case "connections":
         return <SuppliersView />;
       case "bills":
         return <BillsView />;
@@ -50,6 +59,10 @@ const Index = () => {
         return <SettingsView />;
       case "disputes":
         return <DisputesPage />;
+      case "directory":
+        return <SupplierDirectoryPage />;
+      case "connections-pending":
+        return <PendingConnectionsPage />;
       default:
         return <DashboardView />;
     }

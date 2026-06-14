@@ -41,7 +41,7 @@ export function DisputeDialog({ bill, isOpen, onClose, onSuccess }: DisputeDialo
 
     try {
       setIsSubmitting(true);
-      const res = await supplierFetch<{ success: boolean; data: any }>(`/supplier-portal/bills/${bill._id}/dispute`, {
+      const res = await supplierFetch<{ success: boolean; data: any }>(`/supplier-connections/${bill._id}/dispute`, {
         method: 'POST',
         data: { reason } // axios uses data, fetch uses body. Since we use axios in supplierFetch:
       });

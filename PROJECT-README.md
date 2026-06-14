@@ -37,6 +37,12 @@ A modern, full-stack web application for managing Indian grocery stores (Kirana 
 - Auto-logout on token expiry (7 days)
 - Token stored in localStorage
 
+### 🤝 B2B Network & Connections
+- Global directory for shops to discover suppliers
+- Send and receive connection requests
+- Independent supplier accounts and dashboards
+- View and manage connected shops from the supplier portal
+
 ### 👥 Supplier Management
 - CRUD operations for suppliers
 - Contact details (phone, address, email)

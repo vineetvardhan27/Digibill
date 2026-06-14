@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { billAPI } from "@/lib/api";
+import { billAPI, connectionAPI } from "@/lib/api";
 
 interface SidebarProps {
   activeTab: string;
@@ -13,12 +13,14 @@ interface SidebarProps {
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: Home },
-  { id: "suppliers", label: "Suppliers", icon: Users },
+  { id: "connections", label: "My Suppliers", icon: Store },
   { id: "bills", label: "Bills", icon: FileText },
   { id: "scan", label: "Scan Bill", icon: ScanLine },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "forecast", label: "Forecast", icon: TrendingUp },
   { id: "disputes", label: "Disputes", icon: AlertTriangle },
+  { id: "directory", label: "Find Suppliers", icon: Users },
+  { id: "connections-pending", label: "Requests", icon: Store },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -26,23 +28,30 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [disputesCount, setDisputesCount] = useState(0);
+  const [requestsCount, setRequestsCount] = useState(0);
 
   useEffect(() => {
     // Initial fetch
-    fetchDisputesCount();
+    fetchCounts();
 
     // Poll every 60 seconds
-    const interval = setInterval(fetchDisputesCount, 60000);
+    const interval = setInterval(fetchCounts, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchDisputesCount = async () => {
+  const fetchCounts = async () => {
     try {
-      const res = await billAPI.getDisputes('open');
-      setDisputesCount(res.data.length);
+      const res = await billAPI.getDisputes({ status: 'open' });
+      setDisputesCount(res.data?.length || 0);
     } catch (error) {
-      // Silently fail on background poll
       console.error("Failed to fetch disputes count:", error);
+    }
+
+    try {
+      const resReq = await connectionAPI.getPendingConnections();
+      setRequestsCount(resReq.data?.length || 0);
+    } catch (error) {
+      console.error("Failed to fetch requests count:", error);
     }
   };
 
@@ -89,6 +98,11 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                   {item.id === "disputes" && disputesCount > 0 && (
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground shadow-sm">
                       {disputesCount}
+                    </span>
+                  )}
+                  {item.id === "connections-pending" && requestsCount > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-sm">
+                      {requestsCount}
                     </span>
                   )}
                 </div>

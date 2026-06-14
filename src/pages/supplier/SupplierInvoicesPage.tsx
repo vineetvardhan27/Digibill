@@ -16,7 +16,7 @@ export function SupplierInvoicesPage() {
   const fetchInvoices = async () => {
     setIsLoading(true);
     try {
-      const response = await supplierFetch<{ success: boolean; data: SupplierInvoice[] }>('/supplier-portal/invoices');
+      const response = await supplierFetch<{ success: boolean; data: SupplierInvoice[] }>('/supplier-connections/invoices');
       if (response.success) {
         setInvoices(response.data);
       }

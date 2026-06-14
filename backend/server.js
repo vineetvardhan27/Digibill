@@ -10,6 +10,11 @@ import ocrRoutes from './routes/ocrRoutes.js';
 import reminderRoutes from './routes/reminders.js';
 import supplierAuthRoutes from './routes/supplierAuth.js';
 import supplierPortalRoutes from './routes/supplierPortal.js';
+import supplierAccountAuthRoutes from './routes/supplierAccountAuth.js';
+import connectionsRoutes from './routes/connections.js';
+import supplierConnectionsRoutes from './routes/supplierConnections.js';
+import directoryRoutes from './routes/directory.js';
+import supplierDirectoryRoutes from './routes/supplierDirectory.js';
 import reminderCron from './jobs/reminderCron.js';
 
 // Load environment variables
@@ -35,7 +40,12 @@ app.use(globalLimiter);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/supplier-auth', supplierAuthRoutes);
+app.use('/api/supplier-account', supplierAccountAuthRoutes);
 app.use('/api/supplier-portal', supplierPortalRoutes);
+app.use('/api/connections', connectionsRoutes);
+app.use('/api/supplier-connections', supplierConnectionsRoutes);
+app.use('/api/directory', directoryRoutes);
+app.use('/api/supplier-directory', supplierDirectoryRoutes);
 app.use('/api', apiRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api/ocr', ocrRoutes);

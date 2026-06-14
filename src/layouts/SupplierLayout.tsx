@@ -9,7 +9,8 @@ import {
   LogOut, 
   Menu, 
   X, 
-  Store 
+  Store,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,8 @@ export function SupplierLayout() {
     { id: 'bills', label: 'My Bills', icon: FileText, path: '/supplier/bills' },
     { id: 'invoices', label: 'My Invoices', icon: Upload, path: '/supplier/invoices' },
     { id: 'activity', label: 'Activity', icon: Activity, path: '/supplier/activity' },
+    { id: 'directory', label: 'Find Shops', icon: Users, path: '/supplier/directory' },
+    { id: 'connections', label: 'Requests', icon: Store, path: '/supplier/connections/pending' },
   ];
 
   return (

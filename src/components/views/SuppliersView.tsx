@@ -1,17 +1,11 @@
-import { useState, useEffect } from "react";
-import { Plus, Search, Phone, MapPin, ChevronRight, Loader2, Trash2, HeartPulse, Mail, Clock, UserCheck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, MapPin, Loader2, Trash2, ShieldCheck, Mail, Navigation, HeartPulse, UserCircle } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,491 +16,239 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import { formatCurrency } from "@/lib/mockData";
-import { Supplier } from "@/types";
-import type { HealthSummaryItem } from "@/types/health";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { supplierAPI } from "@/lib/api";
-import apiClient from "@/lib/api";
-import { SupplierHealthDialog, HealthGradeBadge } from "@/components/views/SupplierHealthDialog";
+import { connectionAPI } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { HealthGradeBadge } from "@/components/views/SupplierHealthDialog";
 
 export function SuppliersView() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate();
+  const [connections, setConnections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [supplierToInvite, setSupplierToInvite] = useState<Supplier | null>(null);
-  const [inviting, setInviting] = useState(false);
-  const [healthMap, setHealthMap] = useState<Record<string, HealthSummaryItem>>({});
-  const [healthDialogOpen, setHealthDialogOpen] = useState(false);
-  const [healthSupplierId, setHealthSupplierId] = useState<string | null>(null);
-  const [healthSupplierName, setHealthSupplierName] = useState("");
-  const [newSupplier, setNewSupplier] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    email: "",
-    gstNumber: "",
-  });
+  const [statusTab, setStatusTab] = useState("connected");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch suppliers on mount
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [connectionToDisconnect, setConnectionToDisconnect] = useState<any | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  // Debounced notes
+  const notesTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
+
   useEffect(() => {
-    fetchSuppliers();
-    fetchHealthSummary();
-  }, []);
+    fetchConnections();
+  }, [statusTab]);
 
-  const fetchHealthSummary = async () => {
-    try {
-      const response = await apiClient.get('/suppliers/health-summary');
-      const map: Record<string, HealthSummaryItem> = {};
-      for (const item of response.data.data) {
-        map[item.supplierId] = item;
-      }
-      setHealthMap(map);
-    } catch {
-      // Health summary is non-critical — silently ignore errors
-    }
-  };
-
-  const openHealthDialog = (supplier: Supplier, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const id = supplier._id || supplier.id;
-    if (!id) return;
-    setHealthSupplierId(id);
-    setHealthSupplierName(supplier.name);
-    setHealthDialogOpen(true);
-  };
-
-  const fetchSuppliers = async () => {
+  const fetchConnections = async () => {
     try {
       setLoading(true);
-      const response = await supplierAPI.getSuppliers({
-        sortBy: "createdAt",
-        order: "desc",
-      });
-      setSuppliers(response.data.suppliers);
+      const response = await connectionAPI.getConnections({ status: statusTab });
+      setConnections(response.data);
     } catch (error: any) {
-      toast.error(error.message || "Failed to fetch suppliers");
+      toast.error(error.message || "Failed to fetch connections");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredSuppliers = suppliers.filter((supplier) =>
-    supplier.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleNotesChange = (id: string, value: string) => {
+    setConnections(prev => prev.map(c => c._id === id ? { ...c, shopNotes: value } : c));
+
+    if (notesTimeoutRef.current[id]) {
+      clearTimeout(notesTimeoutRef.current[id]);
+    }
+
+    notesTimeoutRef.current[id] = setTimeout(async () => {
+      try {
+        await connectionAPI.updateNotes(id, value);
+      } catch (error) {
+        toast.error("Failed to save note");
+      }
+    }, 1000);
+  };
+
+  const handleDisconnectClick = (conn: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConnectionToDisconnect(conn);
+    setDisconnectDialogOpen(true);
+  };
+
+  const handleDisconnectConfirm = async () => {
+    if (!connectionToDisconnect) return;
+    try {
+      setDisconnecting(true);
+      await connectionAPI.disconnect(connectionToDisconnect._id);
+      setConnections(prev => prev.filter(c => c._id !== connectionToDisconnect._id));
+      setDisconnectDialogOpen(false);
+      toast.success("Connection disconnected");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to disconnect");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const filteredConnections = connections.filter((conn) =>
+    conn.supplierAccountId?.businessName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddSupplier = async () => {
-    if (!newSupplier.name.trim()) {
-      toast.error("Please enter supplier name");
-      return;
-    }
-    if (!newSupplier.phone.trim()) {
-      toast.error("Please enter phone number");
-      return;
-    }
-    if (!newSupplier.address.trim()) {
-      toast.error("Please enter address");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const response = await supplierAPI.createSupplier({
-        name: newSupplier.name,
-        phone: newSupplier.phone,
-        address: newSupplier.address,
-        email: newSupplier.email || undefined,
-        gstNumber: newSupplier.gstNumber || undefined,
-      });
-
-      setSuppliers([response.data.supplier, ...suppliers]);
-      setNewSupplier({ name: "", phone: "", address: "", email: "", gstNumber: "" });
-      setIsDialogOpen(false);
-      toast.success(response.message || "Supplier added successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add supplier");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteClick = (supplier: Supplier, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSupplierToDelete(supplier);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!supplierToDelete) return;
-
-    try {
-      setDeleting(true);
-      // Use _id field from MongoDB
-      const supplierId = supplierToDelete._id || supplierToDelete.id;
-      if (!supplierId) {
-        toast.error("Invalid supplier ID");
-        return;
-      }
-      
-      const response = await supplierAPI.deleteSupplier(supplierId);
-      
-      // Remove supplier from list using _id
-      setSuppliers(suppliers.filter(s => (s._id || s.id) !== (supplierToDelete._id || supplierToDelete.id)));
-      
-      toast.success(response.message || "Supplier deleted successfully");
-      setDeleteDialogOpen(false);
-      setSupplierToDelete(null);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete supplier");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setSupplierToDelete(null);
-  };
-
-  const handleInviteClick = (supplier: Supplier, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!supplier.portalEmail && !supplier.email) {
-      toast.error("Supplier needs an email address to be invited.");
-      return;
-    }
-    setSupplierToInvite(supplier);
-    setInviteDialogOpen(true);
-  };
-
-  const handleInviteConfirm = async () => {
-    if (!supplierToInvite) return;
-    try {
-      setInviting(true);
-      const supplierId = supplierToInvite._id || supplierToInvite.id;
-      if (!supplierId) throw new Error("Invalid ID");
-      
-      const res = await supplierAPI.inviteSupplier(supplierId);
-      toast.success(res.message || `Invitation sent to ${supplierToInvite.portalEmail || supplierToInvite.email}`);
-      
-      // Update local state
-      setSuppliers(suppliers.map(s => (s._id || s.id) === supplierId ? { ...s, inviteStatus: 'invited' } : s));
-      setInviteDialogOpen(false);
-      setSupplierToInvite(null);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send invitation");
-    } finally {
-      setInviting(false);
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount || 0);
   };
 
   return (
     <div className="min-h-screen">
-      <Header title="Suppliers" subtitle={`Manage your ${suppliers.length} suppliers`} />
+      <Header title="My Network" subtitle="Manage your connected suppliers and private notes" />
 
       <main className="px-8 py-6 space-y-6">
-        {/* Search & Add */}
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-col md:flex-row justify-between">
+          <Tabs defaultValue="connected" value={statusTab} onValueChange={setStatusTab} className="w-full md:w-auto">
+            <TabsList className="grid w-full md:w-[300px] grid-cols-2">
+              <TabsTrigger value="connected">Active</TabsTrigger>
+              <TabsTrigger value="disconnected">Archived</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Search suppliers..."
+              placeholder="Search by business name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 text-base bg-muted/50 border-border/50 focus-visible:ring-primary/50"
+              className="pl-12 h-11 text-base bg-muted/50 border-border/50 focus-visible:ring-primary/50"
             />
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2 shadow-lg">
-                <Plus className="h-5 w-5" />
-                Add Supplier
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-xl">Add New Supplier</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-5 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-semibold">Supplier Name *</Label>
-                  <Input
-                    id="name"
-                    placeholder="Enter supplier name"
-                    value={newSupplier.name}
-                    onChange={(e) =>
-                      setNewSupplier({ ...newSupplier, name: e.target.value })
-                    }
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-semibold">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    placeholder="Enter phone number"
-                    value={newSupplier.phone}
-                    onChange={(e) =>
-                      setNewSupplier({ ...newSupplier, phone: e.target.value })
-                    }
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-semibold">Address *</Label>
-                  <Input
-                    id="address"
-                    placeholder="Enter address"
-                    value={newSupplier.address}
-                    onChange={(e) =>
-                      setNewSupplier({ ...newSupplier, address: e.target.value })
-                    }
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-semibold">Email (Optional)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter email"
-                    value={newSupplier.email}
-                    onChange={(e) =>
-                      setNewSupplier({ ...newSupplier, email: e.target.value })
-                    }
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gstNumber" className="text-sm font-semibold">GST Number (Optional)</Label>
-                  <Input
-                    id="gstNumber"
-                    placeholder="Enter GST number"
-                    value={newSupplier.gstNumber}
-                    onChange={(e) =>
-                      setNewSupplier({ ...newSupplier, gstNumber: e.target.value })
-                    }
-                    className="h-11"
-                  />
-                </div>
-                <Button 
-                  className="w-full h-11 text-base" 
-                  onClick={handleAddSupplier}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Adding...
-                    </>
-                  ) : (
-                    "Add Supplier"
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
 
-        {/* Loading State */}
-        {loading && (
+        {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
           </div>
-        )}
+        ) : filteredConnections.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center px-4 bg-muted/10 rounded-xl border border-dashed border-border">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Navigation className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-xl font-semibold text-foreground">No {statusTab} suppliers found</h3>
+            <p className="text-muted-foreground mt-2 max-w-md">
+              {statusTab === 'connected' 
+                ? "You don't have any active connections yet. Head to the directory to discover suppliers." 
+                : "You don't have any archived connections."}
+            </p>
+            {statusTab === 'connected' && (
+              <Button className="mt-6" onClick={() => navigate('/directory')}>
+                Find Suppliers
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredConnections.map((conn) => {
+              const supplier = conn.supplierAccountId;
+              const stats = conn.stats;
 
-        {/* Suppliers Grid */}
-        {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredSuppliers.map((supplier) => (
-              <Card
-                key={supplier._id || supplier.id}
-                className="p-6 hover:shadow-xl transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-lg text-foreground truncate flex items-center gap-2">
-                        {supplier.name}
-                        {healthMap[supplier._id] && (
-                          <HealthGradeBadge grade={healthMap[supplier._id].grade} />
-                        )}
-                      </h3>
-                      {supplier.pendingAmount > 0 && (
-                        <Badge variant="destructive" className="mt-2">
-                          ₹{formatCurrency(supplier.pendingAmount)} Due
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {supplier.inviteStatus === 'active' ? (
-                        <Badge className="bg-success hover:bg-success/90 shrink-0 gap-1 h-8 px-2 flex items-center">
-                          <UserCheck className="h-3.5 w-3.5" /> Active
-                        </Badge>
-                      ) : supplier.inviteStatus === 'invited' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          className="h-8 shrink-0 text-muted-foreground border-border/50 bg-muted/20"
-                          title="Awaiting acceptance"
-                        >
-                          <Clock className="h-4 w-4 mr-1.5" /> Invited
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 shrink-0 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-colors"
-                          onClick={(e) => handleInviteClick(supplier, e)}
-                        >
-                          <Mail className="h-4 w-4 mr-1.5" /> Invite
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => handleDeleteClick(supplier, e)}
-                        title="Delete supplier"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+              return (
+                <Card
+                  key={conn._id}
+                  className="p-6 hover:shadow-xl transition-all duration-300 border-border/50 bg-card cursor-pointer flex flex-col h-full group"
+                  onClick={() => navigate(`/suppliers/${conn._id}`)}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <UserCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg text-foreground line-clamp-1">{supplier.businessName}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className="font-normal">{supplier.category}</Badge>
+                          {stats?.healthScore && <HealthGradeBadge grade={stats.healthScore.grade} />}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    {supplier.phone && (
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                        <span>{supplier.phone}</span>
-                      </div>
-                    )}
-                    {supplier.address && (
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4 shrink-0" />
-                        <span className="line-clamp-2">{supplier.address}</span>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="pt-4 border-t border-border/50 flex items-center justify-between">
+                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-border/50 mb-4">
                     <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Spend</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending Due</p>
                       <p className="text-xl font-bold text-foreground mt-1">
-                        {formatCurrency(supplier.totalSpend)}
+                        ₹{formatCurrency(stats?.pendingAmount)}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Bills</p>
-                      <p className="text-xl font-bold text-foreground mt-1">{supplier.totalBills}</p>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Bills</p>
+                      <p className="text-xl font-bold text-foreground mt-1">
+                        {stats?.totalBills || 0}
+                      </p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full mt-3 gap-2 text-muted-foreground hover:text-primary"
-                    onClick={(e) => openHealthDialog(supplier, e)}
-                  >
-                    <HeartPulse className="h-4 w-4" />
-                    View Health Score
-                  </Button>
-                </div>
-              </Card>
-            ))}
 
-            {filteredSuppliers.length === 0 && (
-              <div className="col-span-full text-center py-20">
-                <p className="text-muted-foreground text-lg">No suppliers found</p>
-              </div>
-            )}
+                  <div className="space-y-3 flex-1 mb-4">
+                    {supplier.location && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="w-4 h-4" />
+                        <span>{supplier.location.city}, {supplier.location.state}</span>
+                      </div>
+                    )}
+                    {supplier.email && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="w-4 h-4" />
+                        <span>{supplier.email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 mt-auto" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Private Notes</p>
+                    <Textarea 
+                      placeholder="Add private notes..."
+                      value={conn.shopNotes || ""}
+                      onChange={(e) => handleNotesChange(conn._id, e.target.value)}
+                      className="resize-none h-20 text-sm focus-visible:ring-primary/50"
+                    />
+                  </div>
+
+                  {statusTab === 'connected' && (
+                    <div className="mt-4 pt-4 border-t border-border/50 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleDisconnectClick(conn, e)}
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={disconnectDialogOpen} onOpenChange={setDisconnectDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Supplier</AlertDialogTitle>
+            <AlertDialogTitle>Disconnect Supplier</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{supplierToDelete?.name}</strong>?
-              {supplierToDelete && supplierToDelete.totalBills > 0 && (
-                <span className="block mt-2 text-amber-600 dark:text-amber-500">
-                  ⚠️ This supplier has {supplierToDelete.totalBills} associated bill(s). The bills will remain intact.
-                </span>
-              )}
-              <span className="block mt-2">
-                This action cannot be undone.
-              </span>
+              Disconnecting will hide <strong>{connectionToDisconnect?.supplierAccountId?.businessName}</strong> from your active suppliers. 
+              Bill history is preserved and can be viewed in Archived Connections.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDeleteCancel} disabled={deleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={disconnecting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={deleting}
+              onClick={handleDisconnectConfirm}
+              disabled={disconnecting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              {disconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Disconnect"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Invite Confirmation Dialog */}
-      <AlertDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Send Portal Invite</AlertDialogTitle>
-            <AlertDialogDescription>
-              Send portal invite to <strong>{supplierToInvite?.name}</strong>?
-              <span className="block mt-2">
-                They'll receive an email at <strong>{supplierToInvite?.portalEmail || supplierToInvite?.email}</strong> to set up their account and view their invoices.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={inviting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleInviteConfirm}
-              disabled={inviting}
-            >
-              {inviting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                "Send Invite"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Health Score Dialog */}
-      <SupplierHealthDialog
-        supplierId={healthSupplierId}
-        supplierName={healthSupplierName}
-        open={healthDialogOpen}
-        onOpenChange={setHealthDialogOpen}
-      />
     </div>
   );
 }

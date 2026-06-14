@@ -15,7 +15,7 @@ export function SupplierActivityPage() {
   const fetchActivity = async () => {
     setIsLoading(true);
     try {
-      const response = await supplierFetch<{ success: boolean; data: ActivityItem[] }>('/supplier-portal/activity');
+      const response = await supplierFetch<{ success: boolean; data: ActivityItem[] }>('/supplier-connections/activity');
       if (response.success) {
         setActivities(response.data);
       }

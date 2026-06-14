@@ -28,7 +28,7 @@ interface Dispute {
   ownerNote?: string;
 }
 
-export function DisputesPage() {
+export function DisputesPage({ connectionId, hideHeader }: { connectionId?: string; hideHeader?: boolean }) {
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,7 +42,7 @@ export function DisputesPage() {
   const fetchDisputes = async () => {
     setIsLoading(true);
     try {
-      const res = await billAPI.getDisputes(statusFilter);
+      const res = await billAPI.getDisputes({ status: statusFilter, connectionId });
       if (res.success) {
         setDisputes(res.data);
       }
@@ -104,11 +104,13 @@ export function DisputesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Supplier Disputes</h1>
-        <p className="text-muted-foreground mt-1">Review and resolve issues raised by your suppliers.</p>
-      </div>
+    <div className={hideHeader ? "pt-2 space-y-6" : "p-4 md:p-8 space-y-6"}>
+      {!hideHeader && (
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Supplier Disputes</h1>
+          <p className="text-muted-foreground mt-1">Review and resolve issues raised by your suppliers.</p>
+        </div>
+      )}
 
       <Tabs defaultValue="open" value={statusFilter} onValueChange={setStatusFilter} className="w-full">
         <TabsList className="grid w-full grid-cols-3 max-w-md">
