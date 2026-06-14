@@ -110,7 +110,7 @@ export default function SupplierDirectoryPage() {
           />
         </div>
         <Select value={category} onValueChange={(val) => { setCategory(val); setPage(1); }}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -121,7 +121,7 @@ export default function SupplierDirectoryPage() {
           </SelectContent>
         </Select>
         <Select value={city} onValueChange={(val) => { setCity(val); setPage(1); }}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="All Cities" />
           </SelectTrigger>
           <SelectContent>

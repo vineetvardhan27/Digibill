@@ -11,6 +11,7 @@ import { ForecastView } from "@/components/views/ForecastView";
 import { DisputesPage } from "@/pages/DisputesPage";
 import SupplierDirectoryPage from "@/pages/SupplierDirectoryPage";
 import PendingConnectionsPage from "@/pages/PendingConnectionsPage";
+import { MobileNav } from "@/components/layout/MobileNav";
 
 const Index = () => {
   const { tab } = useParams();
@@ -71,7 +72,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
-      <div className="ml-64">
+      <div className="md:hidden">
+        <MobileNav activeTab={activeTab} onTabChange={handleTabChange} />
+      </div>
+      <div className="ml-0 md:ml-64 pb-20 md:pb-0">
         <div className="min-h-screen">
           {renderView()}
         </div>

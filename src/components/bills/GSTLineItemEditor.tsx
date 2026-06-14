@@ -60,7 +60,7 @@ export function GSTLineItemEditor({
 
   return (
     <div className="w-full space-y-4">
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto w-full rounded-lg border border-border">
         <table className="w-full text-sm text-left">
           <thead className="bg-muted text-muted-foreground">
             <tr>
