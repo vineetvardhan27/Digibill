@@ -89,7 +89,7 @@ export function UploadInvoiceDialog({ isOpen, onClose, onSuccess }: UploadInvoic
       setIsUploading(true);
       // We must use fetch directly here since axios handles FormData differently and we need to pass the token
       const token = localStorage.getItem('supplierToken');
-      const response = await fetch('http://localhost:5000/api/supplier-connections/invoices/upload', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/supplier-connections/invoices/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -24,7 +24,7 @@ export function SupplierAuthProvider({ children }: { children: ReactNode }) {
       if (token) {
         try {
           // Verify token and fetch profile
-          const res = await fetch('http://localhost:5000/api/supplier-auth/me', {
+          const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/supplier-auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await res.json();

@@ -33,7 +33,7 @@ export function AcceptInvitePage() {
       }
 
       try {
-        const res = await axios.get(`http://localhost:5000/api/supplier-auth/validate-token?token=${token}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/supplier-auth/validate-token?token=${token}`);
         if (res.data.success) {
           setShopName(res.data.data.shopName);
           setSupplierName(res.data.data.supplierName);
@@ -63,7 +63,7 @@ export function AcceptInvitePage() {
 
     try {
       setIsSubmitting(true);
-      const res = await axios.post('http://localhost:5000/api/supplier-auth/accept-invite', {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/supplier-auth/accept-invite`, {
         token,
         password,
         confirmPassword
