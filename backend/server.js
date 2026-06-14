@@ -23,6 +23,9 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 
+// Trust reverse proxy (important for rate limiting behind Render/proxies)
+app.set('trust proxy', 1);
+
 // Connect to MongoDB
 connectDB();
 
