@@ -33,74 +33,18 @@ import { BillScanUploader } from "@/components/OCR/BillScanUploader";
 import { GSTLineItemEditor } from "@/components/bills/GSTLineItemEditor";
 import { Download } from "lucide-react";
 import { generateGSTInvoice } from "@/lib/pdfGenerator";
+import { AddBillDialog } from "@/components/bills/AddBillDialog";
+import { CatchError } from "@/components/CatchError";
 
 export function BillsView({ connectionId, hideHeader }: { connectionId?: string; hideHeader?: boolean }) {
   const navigate = useNavigate();
   const [bills, setBills] = useState<Bill[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [openDisputes, setOpenDisputes] = useState<any[]>([]);
-  const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
-  const [duplicateMatches, setDuplicateMatches] = useState<Bill[]>([]);
-  const [lastCheckedSignature, setLastCheckedSignature] = useState<string>("");
-  const [newBill, setNewBill] = useState({
-    supplierId: "",
-    amount: "",
-    description: "",
-    dueDate: "",
-    items: [{ description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0, gstType: 'CGST_SGST' }] as any[],
-  });
-
-  // Track which fields the user has manually edited (so OCR doesn't overwrite them)
-  const userEditedFields = useRef<Set<string>>(new Set());
-
-  // OCR scan hook
-  const {
-    isScanning,
-    previewUrl,
-    scanResult,
-    scanBill: performScan,
-    cleanup: cleanupOCR,
-  } = useOCRScan();
-
-  // Duplicate Check Debounce Logic
-  useEffect(() => {
-    const supplierId = newBill.supplierId;
-    const amount = newBill.amount;
-    
-    if (!supplierId || !amount || parseFloat(amount) <= 0) {
-      setDuplicateMatches([]);
-      return;
-    }
-
-    const signature = `${supplierId}-${amount}`;
-    if (signature === lastCheckedSignature) return;
-
-    const timeoutId = setTimeout(async () => {
-      try {
-        setDuplicateCheckLoading(true);
-        const result = await billAPI.checkDuplicate({
-          supplierId,
-          amount: parseFloat(amount),
-          billDate: new Date().toISOString()
-        });
-        
-        setDuplicateMatches(result.data.matches || []);
-        setLastCheckedSignature(signature);
-      } catch (error) {
-        console.error('Duplicate check failed', error);
-      } finally {
-        setDuplicateCheckLoading(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [newBill.supplierId, newBill.amount, lastCheckedSignature]);
 
   // Fetch bills and suppliers on mount
   useEffect(() => {
@@ -117,73 +61,6 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
       console.error('Failed to fetch open disputes:', e);
     }
   };
-
-  // ─── Auto-populate form when scan completes ────────────────────────────────
-  useEffect(() => {
-    if (!scanResult) return;
-
-    const updates: Partial<typeof newBill> = {};
-
-    // Auto-populate amount (if not manually edited and extracted value is non-null)
-    if (scanResult.totalAmount !== null && !userEditedFields.current.has('amount')) {
-      updates.amount = String(scanResult.totalAmount);
-    }
-
-    // Auto-populate due date
-    if (scanResult.dueDate && !userEditedFields.current.has('dueDate')) {
-      updates.dueDate = scanResult.dueDate;
-    }
-
-    // Auto-populate description
-    if (scanResult.description && !userEditedFields.current.has('description')) {
-      updates.description = scanResult.description;
-    }
-
-    // Apply updates
-    if (Object.keys(updates).length > 0) {
-      setNewBill(prev => ({ ...prev, ...updates }));
-    }
-
-    // ─── Fuzzy match supplier name ───────────────────────────────────
-    if (scanResult.supplierName && !userEditedFields.current.has('supplierId')) {
-      const scannedName = scanResult.supplierName.toLowerCase().trim();
-
-      // Try exact match first
-      let matched = suppliers.find(
-        s => s.name.toLowerCase().trim() === scannedName
-      );
-
-      // Try contains match
-      if (!matched) {
-        matched = suppliers.find(
-          s =>
-            s.name.toLowerCase().includes(scannedName) ||
-            scannedName.includes(s.name.toLowerCase())
-        );
-      }
-
-      // Try word overlap fuzzy match
-      if (!matched) {
-        const scannedWords = scannedName.split(/\s+/);
-        matched = suppliers.find(s => {
-          const supplierWords = s.name.toLowerCase().split(/\s+/);
-          const overlap = scannedWords.filter(w =>
-            supplierWords.some(sw => sw.includes(w) || w.includes(sw))
-          );
-          return overlap.length >= Math.min(2, scannedWords.length);
-        });
-      }
-
-      if (matched) {
-        setNewBill(prev => ({ ...prev, supplierId: matched._id || matched.id || '' }));
-        toast.success(`Supplier matched: ${matched.name}`);
-      } else {
-        toast.info(`Supplier "${scanResult.supplierName}" not found`, {
-          description: 'Please select a supplier from the list or add them first.',
-        });
-      }
-    }
-  }, [scanResult, suppliers]);
 
   const fetchBills = async () => {
     try {
@@ -245,86 +122,6 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
     return matchesSearch && matchesTab;
   });
 
-  const handleAddBill = async () => {
-    console.log("Form submission - Current newBill state:", newBill);
-    
-    if (!connectionId && (!newBill.supplierId || !newBill.supplierId.trim())) {
-      toast.error("Please select a supplier");
-      return;
-    }
-
-    if (!newBill.amount || !newBill.amount.trim() || newBill.amount === "0") {
-      toast.error("Please add line items with a valid price");
-      return;
-    }
-
-    const amountValue = parseFloat(newBill.amount);
-    if (isNaN(amountValue) || amountValue <= 0) {
-      toast.error("Total amount must be greater than 0");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      
-      // Check if the selected supplier is actually a connection
-      const selectedSupplier = suppliers.find(s => (s._id || s.id) === newBill.supplierId);
-      const isConnectionSelected = selectedSupplier && (selectedSupplier as any).isConnection;
-      
-      const payload: any = {
-        amount: amountValue,
-        date: new Date().toISOString(),
-        dueDate: newBill.dueDate || undefined,
-        description: newBill.description || undefined,
-        items: newBill.items.length > 0 ? newBill.items : undefined,
-      };
-      
-      if (connectionId) {
-        payload.connectionId = connectionId;
-      } else if (isConnectionSelected) {
-        payload.connectionId = newBill.supplierId;
-      } else {
-        payload.supplierId = newBill.supplierId;
-      }
-
-      const response = await billAPI.createBill(payload);
-
-      console.log('Bill created successfully:', response.data.bill);
-      
-      setBills((prevBills) => {
-        const newBills = Array.isArray(prevBills) ? prevBills : [];
-        return [response.data.bill, ...newBills];
-      });
-      
-      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [{ description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0, gstType: 'CGST_SGST' }] });
-      userEditedFields.current.clear();
-      cleanupOCR();
-      setIsDialogOpen(false);
-      toast.success(response.message || "Bill added successfully!");
-      
-      setTimeout(() => fetchBills(), 500);
-    } catch (error: any) {
-      console.error("Bill creation error:", error);
-      toast.error(error.message || "Failed to add bill");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDialogChange = (open: boolean) => {
-    setIsDialogOpen(open);
-    if (!open) {
-      setNewBill({ supplierId: "", amount: "", description: "", dueDate: "", items: [{ description: '', quantity: 1, unitPrice: 0, hsnCode: '', gstRate: 0, gstType: 'CGST_SGST' }] });
-      userEditedFields.current.clear();
-      cleanupOCR();
-    }
-  };
-
-  // Handle file selection from the scanner
-  const handleScanFile = async (file: File) => {
-    await performScan(file);
-  };
-
   const handleMarkAsPaid = async (billId: string) => {
     try {
       const response = await billAPI.markAsPaid(billId, new Date().toISOString());
@@ -340,149 +137,18 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
   };
 
   return (
-    <div className={cn("min-h-screen", hideHeader ? "pt-2" : "")}>
+    <CatchError>
+      <div className={cn("min-h-screen", hideHeader ? "pt-2" : "")}>
       {!hideHeader && <Header title="Bills" subtitle={`Manage your ${bills.length} bills and payments`} />}
 
       <main className={cn(hideHeader ? "" : "px-8 py-6", "space-y-6")}>
         {/* Action Buttons */}
         <div className="flex gap-4">
-          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2 shadow-lg">
-                <Plus className="h-5 w-5" />
-                Add Bill
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-xl">Add New Bill</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-5 pt-4">
-                {/* ─── OCR Scanner ─────────────────────────────────────── */}
-                <BillScanUploader
-                  isScanning={isScanning}
-                  previewUrl={previewUrl}
-                  onFileSelect={handleScanFile}
-                  onClear={cleanupOCR}
-                  scanComplete={!!scanResult}
-                  confidence={scanResult?.confidence}
-                  disabled={submitting}
-                />
-
-                {/* ─── Divider ────────────────────────────────────────── */}
-                <div className="relative flex items-center gap-3">
-                  <div className="flex-1 h-px bg-border/60" />
-                  <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap">
-                    {scanResult ? 'Review & edit below' : 'or fill manually'}
-                  </span>
-                  <div className="flex-1 h-px bg-border/60" />
-                </div>
-
-                {/* ─── Manual Form Fields ─────────────────────────────── */}
-                {!connectionId && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Supplier *</Label>
-                    <Select
-                      value={newBill.supplierId}
-                      onValueChange={(value) => {
-                        userEditedFields.current.add('supplierId');
-                        setNewBill({ ...newBill, supplierId: value });
-                      }}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select supplier" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {suppliers.length === 0 ? (
-                          <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                            No suppliers found. Please add a supplier first.
-                          </div>
-                        ) : (
-                          <>
-                            {suppliers.map((supplier) => (
-                              <SelectItem 
-                                key={supplier._id || supplier.id} 
-                                value={supplier._id || supplier.id || ''}
-                              >
-                                {supplier.name}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {newBill.supplierId && (
-                      <p className="text-xs text-muted-foreground">
-                        Selected: {suppliers.find(s => (s._id || s.id) === newBill.supplierId)?.name || newBill.supplierId}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Line Items</Label>
-                  <div className="bg-background/50 rounded-lg p-2 border border-border/40 overflow-x-auto">
-                    <GSTLineItemEditor
-                      items={newBill.items}
-                      onChange={(newItems) => setNewBill({ ...newBill, items: newItems as any })}
-                      onTotalsChange={(totals) => {
-                        if (totals.grandTotal > 0) {
-                          setNewBill(prev => ({ ...prev, amount: totals.grandTotal.toString() }));
-                          userEditedFields.current.add('amount');
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {duplicateCheckLoading && (
-                  <p className="text-sm text-muted-foreground animate-pulse flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Checking for duplicates...
-                  </p>
-                )}
-
-                {duplicateMatches.length > 0 && !duplicateCheckLoading && (
-                  <Alert variant="default" className="border-warning/50 bg-warning/10 text-warning [&>svg]:text-warning">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle className="font-semibold">Possible Duplicate Detected</AlertTitle>
-                    <AlertDescription className="mt-1">
-                      We found similar bills from this supplier recently:
-                      <ul className="mt-2 mb-2 space-y-1 list-disc list-inside">
-                        {duplicateMatches.map(match => (
-                          <li key={match._id || match.id}>
-                            <button 
-                              type="button"
-                              onClick={(e) => { e.preventDefault(); setSelectedBill(match); }}
-                              className="underline hover:text-warning/80"
-                            >
-                              ₹{match.amount} on {formatDate(match.date)}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                      Are you sure you want to add this new bill?
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <Button 
-                  className="w-full h-11 text-base" 
-                  onClick={handleAddBill}
-                  disabled={submitting || isScanning}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Adding...
-                    </>
-                  ) : (
-                    "Add Bill"
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <AddBillDialog 
+            suppliers={suppliers} 
+            defaultConnectionId={connectionId} 
+            onSuccess={() => fetchBills()} 
+          />
         </div>
 
         {/* Search & Tabs */}
@@ -717,5 +383,6 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
         </Dialog>
       </main>
     </div>
+    </CatchError>
   );
 }

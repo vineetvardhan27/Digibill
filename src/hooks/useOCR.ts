@@ -282,8 +282,10 @@ export function useOCR(): UseOCRReturn {
     setError(null);
 
     try {
-      const billData = {
-        supplierId: selectedSupplierId,
+      const isConnection = selectedSupplierId.startsWith('conn_');
+      const id = selectedSupplierId.replace(/^(conn_|supp_)/, '');
+
+      const billData: any = {
         amount: editableData.totalAmount,
         date: editableData.date || new Date().toISOString(),
         dueDate: editableData.dueDate || undefined,
@@ -294,6 +296,12 @@ export function useOCR(): UseOCRReturn {
           item => item.description && item.quantity > 0 && item.unitPrice >= 0
         ),
       };
+
+      if (isConnection) {
+        billData.connectionId = id;
+      } else {
+        billData.supplierId = id;
+      }
 
       await billAPI.createBill(billData);
       setState('saved');

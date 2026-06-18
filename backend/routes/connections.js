@@ -73,9 +73,14 @@ router.get('/', async (req, res, next) => {
     const shopOwnerId = req.user._id;
     const status = req.query.status || 'connected';
 
-    const connections = await Connection.find({ shopOwnerId, status }).populate({
+    const query = { shopOwnerId };
+    if (status !== 'all') {
+      query.status = status;
+    }
+
+    const connections = await Connection.find(query).populate({
       path: 'supplierAccountId',
-      select: status === 'connected' 
+      select: (status === 'connected' || status === 'all')
         ? 'businessName ownerName category location description gstin phone email' 
         : 'businessName ownerName category location description gstin'
     }).lean();

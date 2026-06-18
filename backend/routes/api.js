@@ -842,9 +842,36 @@ router.get('/bills/disputes', async (req, res) => {
     const disputes = await BillDispute.find(query)
       .populate('billId', 'amount description')
       .populate('supplierId', 'name portalEmail')
-      .sort({ createdAt: -1 });
+      .populate({
+        path: 'connectionId',
+        populate: {
+          path: 'supplierAccountId',
+          select: 'businessName ownerName email'
+        }
+      })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.status(200).json({ success: true, data: disputes });
+    const formattedDisputes = disputes.map(d => {
+      let supplierInfo = d.supplierId;
+      if (!supplierInfo && d.connectionId && d.connectionId.supplierAccountId) {
+        supplierInfo = {
+          _id: d.connectionId.supplierAccountId._id,
+          name: d.connectionId.supplierAccountId.businessName || d.connectionId.supplierAccountId.ownerName,
+          portalEmail: d.connectionId.supplierAccountId.email
+        };
+      }
+      
+      const billInfo = d.billId || { _id: 'unknown', amount: 0, description: 'Deleted Bill' };
+
+      return {
+        ...d,
+        billId: billInfo,
+        supplierId: supplierInfo || { _id: 'unknown', name: 'Unknown Supplier' }
+      };
+    });
+
+    res.status(200).json({ success: true, data: formattedDisputes });
   } catch (error) {
     console.error('Get disputes error:', error);
     res.status(500).json({ success: false, message: 'Server error while fetching disputes' });
@@ -938,14 +965,28 @@ router.put('/bills/:id/pay', async (req, res) => {
       });
     }
 
-    // Find supplier
-    const supplier = await Supplier.findById(bill.supplierId);
+    let supplierData = null;
 
-    if (!supplier) {
-      return res.status(404).json({
-        success: false,
-        message: 'Associated supplier not found'
-      });
+    if (bill.supplierId) {
+      // Find supplier
+      const supplier = await Supplier.findById(bill.supplierId);
+
+      if (!supplier) {
+        return res.status(404).json({
+          success: false,
+          message: 'Associated supplier not found'
+        });
+      }
+
+      // Decrease supplier's pending amount
+      supplier.pendingAmount = Math.max(0, supplier.pendingAmount - bill.amount);
+      await supplier.save();
+      
+      supplierData = {
+        id: supplier._id,
+        name: supplier.name,
+        pendingAmount: supplier.pendingAmount
+      };
     }
 
     // Update bill
@@ -953,18 +994,27 @@ router.put('/bills/:id/pay', async (req, res) => {
     bill.paidDate = new Date();
     await bill.save();
 
-    // Decrease supplier's pending amount
-    supplier.pendingAmount = Math.max(0, supplier.pendingAmount - bill.amount);
-    await supplier.save();
-
-    // Populate bill with supplier info and transform for frontend
+    // Populate bill with supplier/connection info and transform for frontend
     const populatedBill = await Bill.findById(bill._id)
       .populate('supplierId', 'name phone address')
+      .populate({
+        path: 'connectionId',
+        populate: { path: 'supplierAccountId', select: 'businessName ownerName phone location' }
+      })
       .lean();
     
     // Add supplier field for frontend compatibility
-    if (populatedBill && populatedBill.supplierId) {
-      populatedBill.supplier = populatedBill.supplierId;
+    if (populatedBill) {
+      if (populatedBill.supplierId) {
+        populatedBill.supplier = populatedBill.supplierId;
+      } else if (populatedBill.connectionId && populatedBill.connectionId.supplierAccountId) {
+        populatedBill.supplier = {
+          _id: populatedBill.connectionId._id,
+          name: populatedBill.connectionId.supplierAccountId.businessName || populatedBill.connectionId.supplierAccountId.ownerName,
+          phone: populatedBill.connectionId.supplierAccountId.phone,
+          address: populatedBill.connectionId.supplierAccountId.location?.city 
+        };
+      }
     }
 
     res.status(200).json({
@@ -972,11 +1022,7 @@ router.put('/bills/:id/pay', async (req, res) => {
       message: 'Bill marked as paid successfully',
       data: { 
         bill: populatedBill,
-        supplier: {
-          id: supplier._id,
-          name: supplier.name,
-          pendingAmount: supplier.pendingAmount
-        }
+        supplier: supplierData
       }
     });
   } catch (error) {

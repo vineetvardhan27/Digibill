@@ -73,22 +73,38 @@ export function ExtractedBillForm({
   error,
   className,
 }: ExtractedBillFormProps) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<Array<{ id: string, name: string, type: 'supplier' | 'connection' }>>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
 
-  // Fetch suppliers for the dropdown
+  // Fetch suppliers and connections for the dropdown
   useEffect(() => {
-    const fetchSuppliers = async () => {
+    const fetchOptions = async () => {
       try {
-        const response = await supplierAPI.getSuppliers({ limit: 200 });
-        setSuppliers(response.data.suppliers);
-      } catch {
-        console.error('Failed to fetch suppliers');
+        const [suppRes, connRes] = await Promise.all([
+          supplierAPI.getSuppliers({ limit: 200 }),
+          import('@/lib/api').then(m => m.connectionAPI.getConnections({ status: 'connected' }))
+        ]);
+        
+        const suppList = suppRes.data.suppliers.map((s: any) => ({
+          id: `supp_${s._id}`,
+          name: s.name,
+          type: 'supplier' as const
+        }));
+        
+        const connList = connRes.data.map((c: any) => ({
+          id: `conn_${c._id}`,
+          name: c.supplierAccountId?.businessName ? `${c.supplierAccountId.businessName} (Network)` : 'Unknown Connected Shop',
+          type: 'connection' as const
+        }));
+        
+        setSuppliers([...connList, ...suppList]);
+      } catch (e) {
+        console.error('Failed to fetch suppliers/connections', e);
       } finally {
         setLoadingSuppliers(false);
       }
     };
-    fetchSuppliers();
+    fetchOptions();
   }, []);
 
   const formatDateForInput = (dateStr: string | null): string => {
@@ -151,8 +167,8 @@ export function ExtractedBillForm({
           >
             <option value="">Select a supplier...</option>
             {suppliers.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name} {s._id === matchedSupplier?._id ? '(Matched)' : ''}
+              <option key={s.id} value={s.id}>
+                {s.name} {s.id === matchedSupplier?._id ? '(Matched)' : ''}
               </option>
             ))}
           </select>

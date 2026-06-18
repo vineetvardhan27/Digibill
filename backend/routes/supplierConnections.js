@@ -129,7 +129,12 @@ router.get('/', async (req, res, next) => {
     const supplierAccountId = req.supplierAccount._id;
     const status = req.query.status || 'connected';
 
-    const connections = await Connection.find({ supplierAccountId, status })
+    const query = { supplierAccountId };
+    if (status !== 'all') {
+      query.status = status;
+    }
+
+    const connections = await Connection.find(query)
       .select('-shopNotes') // Strip private shopNotes
       .populate('shopOwnerId', 'shopName name');
 

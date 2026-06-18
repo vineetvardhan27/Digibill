@@ -12,6 +12,7 @@ import { DisputesPage } from "@/pages/DisputesPage";
 import SupplierDirectoryPage from "@/pages/SupplierDirectoryPage";
 import PendingConnectionsPage from "@/pages/PendingConnectionsPage";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { CatchError } from "@/components/CatchError";
 
 const Index = () => {
   const { tab } = useParams();
@@ -49,7 +50,11 @@ const Index = () => {
       case "connections":
         return <SuppliersView />;
       case "bills":
-        return <BillsView />;
+        return (
+          <CatchError>
+            <BillsView />
+          </CatchError>
+        );
       case "scan":
         return <OCRScanView />;
       case "analytics":
