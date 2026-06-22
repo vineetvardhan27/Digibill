@@ -1,49 +1,127 @@
-# 📊 Digibill - Digital Bill & Supplier Management
+<div align="center">
 
-Digibill is a comprehensive B2B supplier and bill management platform designed for small businesses and retail shops. It digitizes invoice tracking, manages supplier relationships, and provides expense analytics.
+# Digibill
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-43853D?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+**Enterprise-grade B2B supplier and invoice management for modern small businesses**
 
----
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React_18-20232A?style=flat-square&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js_v18+-43853D?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=flat-square&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
 
-## ✨ Key Features
+[Features](#-features) · [Architecture](#-architecture) · [Getting Started](#-getting-started) · [Configuration](#-configuration) · [API Reference](#-api-reference) · [Contributing](#-contributing)
 
-* 🏢 **Supplier Management & Health Scores**: Track all your B2B suppliers and automatically compute trust grades (0-100) based on real payment history and trends.
-* 📄 **Digital Billing & Full GST Support**: Log bills with interactive line items. Built-in support for Indian GST slabs, HSN codes, IGST/CGST/SGST breakdowns, and live total calculations.
-* 🤖 **AI Bill Scanning (OCR)**: Instantly extract bill details and GST data by uploading a photo using the **Groq Vision API** (`meta-llama/llama-4-scout-17b-16e-instruct`).
-* ⏰ **Smart Payment Reminders**: Automated daily cron jobs that send payment reminders 1-3 days before due dates via Email (Nodemailer) & WhatsApp (Twilio), with full send-log auditing.
-* 🤝 **B2B Network & Connection System**: Global directory for shops to discover verified suppliers. Send and receive connection requests, enabling suppliers to manage multiple connected shops through an independent account and dashboard.
-* 🌐 **Dedicated Supplier Portal (Auth & Invite)**: Send branded magic-link invites to suppliers. They get an isolated dashboard to view invoices, upload their own PDFs, acknowledge receipts, and raise formal disputes — completely free for suppliers.
-* 💼 **Bill Disputes Workflow**: Integrated system for shop owners to view a live dispute badge, review reasons, and resolve/reject disputes directly from their dashboard.
-* 📈 **Cash Flow Forecasting (30 & 90 Day)**: Detects recurring supplier bill patterns and visualizes confirmed vs. predicted upcoming outflows via interactive Recharts area charts.
-* ⚠️ **Duplicate Bill Detection**: Smart, debounced front-end detection that catches accidental double-entries (same supplier, similar amount/date within 2%/7 days) before you hit save.
-* 🚀 **Modern Landing & Pricing Page**: Stunning public-facing marketing site featuring a live invoice ticker, responsive pricing tiers (Free / Pro / Business), and smooth scroll animations.
-* 🖨️ **PDF Generation**: Instantly generate and download professional, tabular GST invoice PDFs directly from the browser.
-* ⚙️ **Settings & Data Export**: Manage shop profiles, toggle Dark Mode, disable supplier portal access globally, and export your entire database as JSON.
-* 🛡️ **Security**: Secured with JWT authentication (separate token scopes for owners vs. suppliers) and protected by a 3-tier rate limiter (Global, Auth, OCR).
+</div>
 
 ---
 
-## 🛠️ Tech Stack
+## Overview
 
-* **Frontend**: React 18, TypeScript, Vite, React Router, Tailwind CSS, shadcn/ui, Recharts
-* **Backend**: Node.js, Express.js, MongoDB, Mongoose, JWT, express-rate-limit, groq-sdk
-* **Integrations**: `node-cron` (reminder scheduling), `nodemailer` (email), `twilio` (WhatsApp), `cloudinary` (supplier file uploads), `multer` (multipart handling)
+Digibill is a full-stack B2B invoice and supplier management platform built for small businesses and retail shops operating in the Indian market. It replaces manual, paper-based billing workflows with a digitized system that handles supplier relationships, GST-compliant invoicing, AI-assisted data entry, automated payment reminders, and cash flow forecasting — all in a single, unified interface.
+
+**Why Digibill?**
+
+- **Zero paper, full compliance** — Generate GST-compliant invoices with IGST/CGST/SGST breakdowns and HSN codes in seconds.
+- **AI-first data entry** — Photograph a physical bill; the AI scanner extracts and pre-fills all fields automatically.
+- **Proactive cash management** — Receive payment reminders before due dates and visualize 30/90-day cash outflows before they happen.
+- **Collaborative supplier portal** — Suppliers get their own isolated dashboard to acknowledge invoices, upload PDFs, and raise formal disputes — at no cost to them.
 
 ---
 
-## 🚀 Installation & Setup
+## Features
+
+### Core Platform
+
+| Module | Description |
+|---|---|
+| **Supplier Management** | Centralized directory with automated health scores (0–100) computed from live payment history and trend analysis |
+| **Digital Billing** | Line-item invoices with real-time GST calculations, HSN codes, and full IGST/CGST/SGST breakdown |
+| **AI Bill Scanner (OCR)** | Image-to-invoice extraction via Groq Vision API (`meta-llama/llama-4-scout-17b-16e-instruct`) with fuzzy supplier name matching |
+| **PDF Generation** | One-click, browser-side generation of GST-compliant, tabular invoice PDFs |
+| **Duplicate Detection** | Debounced pre-save detection of duplicate entries (same supplier, amount within 2%, date within 7 days) |
+
+### Automation & Integrations
+
+| Module | Description |
+|---|---|
+| **Smart Payment Reminders** | Cron-based daily job sends email (Nodemailer) and WhatsApp (Twilio) reminders 1–3 days before due dates, with full send-log auditing |
+| **Cash Flow Forecasting** | Detects recurring 30-day billing patterns per supplier (≥3 bills, ±5-day tolerance) and projects 30/90-day confirmed vs. predicted outflows via interactive Recharts area charts |
+
+### B2B Network
+
+| Module | Description |
+|---|---|
+| **Connection System** | Global supplier directory; shops send/receive connection requests; suppliers manage multiple connected shops from an independent dashboard |
+| **Supplier Portal** | Magic-link email invite (48-hour validity); suppliers access an isolated dashboard to view invoices, upload PDFs, acknowledge receipts, and raise disputes |
+| **Disputes Workflow** | Live unread badge on the Disputes page; shop owners review dispute reasons and resolve or reject with a single action |
+
+### Platform & Security
+
+| Module | Description |
+|---|---|
+| **Authentication** | JWT-based auth with separate token scopes for shop owners and supplier accounts |
+| **Rate Limiting** | 3-tier express rate limiter: Global, Auth, and OCR endpoint protection |
+| **Settings & Export** | Manage shop profile, toggle Dark Mode, disable supplier portal globally, and export the full database as JSON |
+
+---
+
+## Architecture
+
+```
+digibill/
+├── src/                        # React frontend (Vite + TypeScript)
+│   ├── components/             # Reusable UI components (shadcn/ui + Tailwind)
+│   ├── pages/                  # Route-level views
+│   │   ├── Dashboard.tsx
+│   │   ├── Bills.tsx
+│   │   ├── Suppliers.tsx
+│   │   ├── Forecast.tsx
+│   │   ├── Disputes.tsx
+│   │   └── supplier/           # Isolated supplier portal views
+│   ├── hooks/                  # Custom React hooks
+│   └── lib/                    # API client, utilities, type definitions
+│
+└── backend/                    # Express.js API server (Node.js + TypeScript)
+    ├── controllers/            # Route handlers
+    ├── models/                 # Mongoose schemas
+    ├── routes/                 # API route definitions
+    ├── middleware/             # Auth, rate-limiting, error handling
+    ├── services/
+    │   ├── ocr.service.ts      # Groq Vision API integration
+    │   ├── reminder.service.ts # Email + WhatsApp notification logic
+    │   └── forecast.service.ts # Recurring pattern detection
+    └── jobs/
+        └── reminder.cron.ts    # Daily cron job (node-cron)
+```
+
+### Tech Stack
+
+**Frontend:** React 18, TypeScript, Vite, React Router, Tailwind CSS, shadcn/ui, Recharts
+
+**Backend:** Node.js, Express.js, MongoDB, Mongoose, JWT, express-rate-limit, groq-sdk
+
+**Third-Party Integrations:** `node-cron`, `nodemailer`, `twilio`, `cloudinary`, `multer`
+
+---
+
+## Getting Started
 
 ### Prerequisites
-* Node.js (v18+)
-* MongoDB (Local or Atlas)
-* A Groq API Key (for the OCR feature)
-* (Optional) SMTP credentials, Twilio account, and Cloudinary account for Reminders & Supplier Portal uploads
 
-### 1. Backend Setup
+- Node.js **v18+**
+- MongoDB (local instance or [MongoDB Atlas](https://www.mongodb.com/atlas))
+- A [Groq API key](https://console.groq.com) (required for AI Bill Scanner)
+- *(Optional)* SMTP credentials, Twilio account, and Cloudinary account for reminders and supplier file uploads
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/digibill.git
+cd digibill
+```
+
+### 2. Backend Setup
 
 ```bash
 cd backend
@@ -51,88 +129,163 @@ npm install
 cp .env.example .env
 ```
 
-**Configure `backend/.env`:**
+Edit `backend/.env` with your credentials (see [Configuration](#-configuration) below), then start the server:
+
+```bash
+npm run dev
+# Server runs on http://localhost:5000
+```
+
+### 3. Frontend Setup
+
+In a new terminal from the project root:
+
+```bash
+npm install
+npm run dev
+# App runs on http://localhost:8080
+```
+
+---
+
+## Configuration
+
+All backend configuration is managed via `backend/.env`. Copy `backend/.env.example` and populate each value.
+
 ```env
-# Server
+# ── Server ────────────────────────────────────────────────────────────────────
 PORT=5000
 NODE_ENV=development
-
-# Database
-MONGODB_URI=mongodb://localhost:27017/digibill
-
-# Security
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRE=7d
 CLIENT_URL=http://localhost:8080
 
-# AI / OCR
-GROQ_API_KEY=your_groq_api_key_here
+# ── Database ──────────────────────────────────────────────────────────────────
+MONGODB_URI=mongodb://localhost:27017/digibill
 
-# Email Reminders & Supplier Invites (Nodemailer SMTP)
+# ── Security ──────────────────────────────────────────────────────────────────
+JWT_SECRET=your_super_secret_jwt_key_min_32_chars
+JWT_EXPIRE=7d
+
+# ── AI / OCR (Required for Bill Scanner) ──────────────────────────────────────
+GROQ_API_KEY=your_groq_api_key
+
+# ── Email Reminders & Supplier Invites (Nodemailer) ───────────────────────────
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your_email@gmail.com
 SMTP_PASS=your_smtp_app_password
 SMTP_FROM="Digibill <noreply@digibill.app>"
 
-# WhatsApp Reminders (Twilio)
-TWILIO_ACCOUNT_SID=your_twilio_sid
+# ── WhatsApp Reminders (Twilio) ───────────────────────────────────────────────
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 
-# Supplier Invoice Uploads (Cloudinary)
+# ── Supplier File Uploads (Cloudinary) ────────────────────────────────────────
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-Start the backend:
-```bash
-npm run dev
-```
-
-### 2. Frontend Setup
-
-Open a new terminal:
-```bash
-# From the root directory
-npm install
-npm run dev
-```
-
-The application will be available at `http://localhost:8080`.
+> **Note:** The application runs in a degraded-but-functional mode without optional integrations (SMTP, Twilio, Cloudinary). Core billing and supplier management features are unaffected.
 
 ---
 
-## 📖 How to Use the AI Scanner
-1. Go to the **Bills** page and click **Add Bill**.
-2. Drag and drop an invoice image into the scanner area.
-3. Digibill will securely process the image (in-memory) via Groq Vision API.
-4. The system will auto-populate the total amount, due date, description, GST breakdown, and match the supplier name using fuzzy logic.
-5. Review the extracted line items by clicking on the saved bill, and download a GST-compliant PDF anytime.
+## Feature Guides
+
+### AI Bill Scanner
+
+1. Navigate to **Bills → Add Bill**.
+2. Drag and drop an invoice image into the scanner zone.
+3. Digibill processes the image in-memory via the Groq Vision API — no image is stored on our servers.
+4. Extracted fields (total, due date, description, GST breakdown) are pre-populated automatically. The supplier name is matched using fuzzy logic against your existing supplier list.
+5. Review line items on the saved bill detail view. Download a GST-compliant PDF at any time.
+
+### Supplier Portal
+
+1. Navigate to **Suppliers** and click **Invite to Portal** on a supplier card.
+2. The supplier receives a branded email with a secure magic link (valid for 48 hours).
+3. They create a password and log in at `/supplier/login` — an environment fully isolated from your owner account.
+4. Suppliers can: view assigned invoices, acknowledge receipt, raise formal disputes with reasons, and upload their own invoice copies via Cloudinary.
+5. Raised disputes appear immediately on your **Disputes** page with a live unread count badge.
+
+### Cash Flow Forecasting
+
+Digibill analyzes your bill history per supplier. A recurring pattern is detected when a supplier has 3 or more paid bills at a consistent interval of approximately 30 days (±5-day tolerance). Detected patterns generate forward projections displayed on the **Forecast** page, separated into:
+
+- **Confirmed** — Actual pending bills already logged in the system.
+- **Predicted** — AI-projected outflows based on recurring patterns.
+
+Toggle between 30-day and 90-day views using the range selector.
 
 ---
 
-## 🌐 How to Use the Supplier Portal
-1. Go to the **Suppliers** page and click **Invite to Portal** on any supplier card.
-2. The supplier receives an email with a secure link valid for 48 hours.
-3. They set a password and log in at `/supplier/login` — completely separate from your owner account.
-4. Suppliers can view their bills, acknowledge receipt, raise disputes, and upload their own invoice copies.
-5. Any disputes raised appear instantly on your **Disputes** page (with a live unread badge) for you to resolve or reject.
+## API Reference
+
+The REST API is served at `http://localhost:5000/api`. All protected endpoints require a `Bearer` token in the `Authorization` header.
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | — | Register a new shop account |
+| `POST` | `/api/auth/login` | — | Authenticate and receive JWT |
+| `GET` | `/api/suppliers` | Owner | List all suppliers |
+| `POST` | `/api/suppliers` | Owner | Create a supplier |
+| `GET` | `/api/bills` | Owner | List all bills |
+| `POST` | `/api/bills` | Owner | Create a bill |
+| `POST` | `/api/bills/scan` | Owner | OCR scan an invoice image |
+| `GET` | `/api/forecast` | Owner | Get 30/90-day cash flow forecast |
+| `GET` | `/api/disputes` | Owner | List all disputes |
+| `POST` | `/api/supplier/auth/login` | — | Supplier portal login |
+| `GET` | `/api/supplier/bills` | Supplier | List bills visible to this supplier |
+
+> Full OpenAPI documentation is forthcoming. See controller source files in `backend/controllers/` for complete parameter and response schemas.
 
 ---
 
-## 📈 How Cash Flow Forecasting Works
-Digibill scans your bill history per supplier. If a supplier has 3+ paid bills at a consistent ~30-day interval (±5 days), future occurrences are projected automatically. The Forecast page shows **Confirmed** outflows (actual pending bills) separately from **Predicted** outflows (recurring projections) across a 30 or 90-day window.
+## Contributing
+
+Contributions are welcome. Please follow the workflow below to keep the codebase consistent.
+
+1. **Fork** the repository and create your branch from `main`:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Follow** the existing code style. The project uses ESLint and Prettier; run the linter before committing:
+   ```bash
+   npm run lint
+   ```
+
+3. **Write descriptive commit messages** following [Conventional Commits](https://www.conventionalcommits.org/):
+   ```
+   feat(ocr): improve supplier fuzzy-match threshold
+   fix(cron): prevent duplicate reminder sends on retry
+   ```
+
+4. **Open a Pull Request** against `main` with a clear description of the change and any relevant context.
+
+For significant changes, please open an issue first to discuss the approach.
 
 ---
 
-## 🤝 Contributing
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+## Roadmap
 
-## 📄 License
-This project is licensed under the MIT License. Copyright (c) 2026 Vineet Vardhan.
+- [ ] OpenAPI / Swagger documentation
+- [ ] Multi-currency support
+- [ ] Native mobile app (React Native)
+- [ ] Tally ERP / Zoho Books integration
+- [ ] Role-based access control (RBAC) for shop staff accounts
+- [ ] Bulk bill import via CSV/Excel
+
+---
+
+## License
+
+Distributed under the MIT License. See [`LICENSE`](./LICENSE) for full terms.
+
+Copyright © 2026 Vineet Vardhan.
+
+---
+
+<div align="center">
+  <sub>Built with care for small businesses navigating India's GST landscape.</sub>
+</div>
