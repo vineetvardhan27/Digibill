@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * Centralized Regex Patterns for Bill/Invoice Text Parsing

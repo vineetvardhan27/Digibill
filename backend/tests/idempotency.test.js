@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../server.js';
 import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
 
 let token;
 
@@ -20,7 +21,6 @@ beforeAll(async () => {
       password: 'password123'
     });
   // Since we bypassed register we might not have a password set up right, let's just generate a token
-  import jwt from 'jsonwebtoken';
   token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '1h' });
 });
 

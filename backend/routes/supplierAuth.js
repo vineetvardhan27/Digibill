@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { body, validationResult } from 'express-validator';
+import Supplier from '../models/Supplier.js';
 import SupplierAccount from '../models/SupplierAccount.js';
 import supplierAuth from '../middleware/supplierAuth.js';
 

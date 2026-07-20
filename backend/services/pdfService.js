@@ -165,7 +165,7 @@ export async function extractTextFromPDF(filePath) {
   try {
     fileStats = await fs.stat(filePath);
   } catch (error) {
-    throw new Error(`PDF file not found: ${filePath}`);
+    throw new Error(`PDF file not found: ${filePath}`, { cause: error });
   }
 
   if (fileStats.size > CONFIG.maxFileSizeBytes) {
@@ -293,18 +293,18 @@ export async function extractTextFromPDF(filePath) {
     if (error.message?.includes('encrypted')) {
       throw new Error(
         'This PDF is password-protected/encrypted. ' +
-        'Please upload an unprotected version.'
+        'Please upload an unprotected version.', { cause: error }
       );
     }
 
     if (error.message?.includes('XRef') || error.message?.includes('cross-reference')) {
       throw new Error(
         'This PDF has a corrupted structure (invalid cross-reference table). ' +
-        'Try re-saving it from a PDF viewer before uploading.'
+        'Try re-saving it from a PDF viewer before uploading.', { cause: error }
       );
     }
 
-    throw new Error(`PDF processing failed: ${error.message}`);
+    throw new Error(`PDF processing failed: ${error.message}`, { cause: error });
   }
 }
 

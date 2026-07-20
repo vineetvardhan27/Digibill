@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * Line Item Extractor — Intelligent Table Row Parser

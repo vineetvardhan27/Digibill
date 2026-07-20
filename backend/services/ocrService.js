@@ -271,7 +271,7 @@ async function getWorker() {
   } catch (error) {
     worker = null;
     workerReady = false;
-    throw new Error(`Failed to initialize Tesseract worker: ${error.message}`);
+    throw new Error(`Failed to initialize Tesseract worker: ${error.message}`, { cause: error });
   } finally {
     workerInitializing = false;
   }

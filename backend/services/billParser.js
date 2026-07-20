@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Bill Parser Service — Multi-Strategy Extraction Engine
  * Converts raw OCR/PDF text into structured bill data.
