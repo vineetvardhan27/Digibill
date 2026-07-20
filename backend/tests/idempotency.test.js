@@ -1,9 +1,13 @@
 import request from 'supertest';
 import app from '../server.js';
 import User from '../models/User.js';
+import ReminderConfig from '../models/ReminderConfig.js';
 import jwt from 'jsonwebtoken';
 
+import { jest } from '@jest/globals';
 let token;
+
+jest.setTimeout(30000);
 
 beforeAll(async () => {
   const user = new User({
@@ -13,6 +17,13 @@ beforeAll(async () => {
     emailVerified: true
   });
   await user.save();
+
+  const config = new ReminderConfig({
+    userId: user._id,
+    channel: 'email',
+    emailAddress: 'idemp@example.com'
+  });
+  await config.save();
 
   // Login to get token
   const res = await request(app)

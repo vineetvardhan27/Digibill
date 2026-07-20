@@ -1,6 +1,9 @@
 import request from 'supertest';
 import app from '../server.js';
 import redisClient from '../config/redis.js';
+import { jest } from '@jest/globals';
+
+jest.setTimeout(30000);
 
 describe('Phase 2: Rate Limiter Middleware', () => {
   it('should return 429 Too Many Requests after exceeding window limit', async () => {

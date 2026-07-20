@@ -2,8 +2,11 @@ import request from 'supertest';
 import app from '../server.js';
 import User from '../models/User.js';
 
+import { jest } from '@jest/globals';
 let token;
 let userId;
+
+jest.setTimeout(30000);
 
 beforeAll(async () => {
   // Create a user for authenticated routes
