@@ -101,6 +101,14 @@ const billSchema = new mongoose.Schema(
     },
     acknowledgedAt: {
       type: Date
+    },
+    razorpayOrderId: {
+      type: String,
+      sparse: true
+    },
+    razorpayPaymentId: {
+      type: String,
+      sparse: true
     }
   },
   {

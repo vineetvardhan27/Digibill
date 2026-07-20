@@ -3,6 +3,8 @@ import { body, validationResult } from 'express-validator';
 import Supplier from '../models/Supplier.js';
 import Bill from '../models/Bill.js';
 import authMiddleware from '../middleware/authMiddleware.js';
+import { requireEmailVerified } from '../middleware/verifyEmailMiddleware.js';
+import { getOrSetCache, invalidateCache } from '../lib/cache.js';
 
 const router = express.Router();
 
@@ -193,10 +195,13 @@ router.get('/suppliers/health-summary', async (req, res) => {
 // @access  Private
 router.get('/suppliers/:id', async (req, res) => {
   try {
-    const supplier = await Supplier.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id,
-      isDeleted: { $ne: true }
+    const cacheKey = `supplier:${req.params.id}`;
+    const supplier = await getOrSetCache(cacheKey, 300, async () => {
+      return Supplier.findOne({
+        _id: req.params.id,
+        createdBy: req.user._id,
+        isDeleted: { $ne: true }
+      }).lean();
     });
 
     if (!supplier) {
@@ -334,6 +339,9 @@ router.put(
 
       await supplier.save();
 
+      // Invalidate cached supplier profile
+      await invalidateCache(`supplier:${req.params.id}`);
+
       res.status(200).json({
         success: true,
         message: 'Supplier updated successfully',
@@ -389,6 +397,12 @@ router.delete('/suppliers/:id', async (req, res) => {
       supplier.isDeleted = true;
       supplier.deletedAt = new Date();
       await supplier.save();
+
+      // Invalidate cached supplier profile and health score
+      await invalidateCache(
+        `supplier:${req.params.id}`,
+        `supplier:${req.params.id}:health`
+      );
       
       console.log(`[DELETE SUPPLIER] Soft deleted supplier: ${supplier.name} (ID: ${supplier._id}) by user: ${req.user._id}. Has ${billCount} associated bills.`);
       
@@ -408,6 +422,12 @@ router.delete('/suppliers/:id', async (req, res) => {
     supplier.isDeleted = true;
     supplier.deletedAt = new Date();
     await supplier.save();
+
+    // Invalidate cached supplier profile and health score
+    await invalidateCache(
+      `supplier:${req.params.id}`,
+      `supplier:${req.params.id}:health`
+    );
 
     console.log(`[DELETE SUPPLIER] Successfully soft deleted supplier: ${supplier.name} (ID: ${supplier._id}) by user: ${req.user._id}`);
 
@@ -438,31 +458,38 @@ router.delete('/suppliers/:id', async (req, res) => {
 // @access  Private
 router.get('/suppliers/:id/health', async (req, res) => {
   try {
-    const { calculateHealthScore } = await import('../utils/healthScore.js');
+    const cacheKey = `supplier:${req.params.id}:health`;
+    const healthData = await getOrSetCache(cacheKey, 600, async () => {
+      const { calculateHealthScore } = await import('../utils/healthScore.js');
 
-    const supplier = await Supplier.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id,
-      isDeleted: { $ne: true }
+      const supplier = await Supplier.findOne({
+        _id: req.params.id,
+        createdBy: req.user._id,
+        isDeleted: { $ne: true }
+      }).lean();
+
+      if (!supplier) return null;
+
+      const bills = await Bill.find({ supplierId: supplier._id }).lean();
+      const healthScore = calculateHealthScore(bills);
+
+      return {
+        supplierId: supplier._id,
+        supplierName: supplier.name,
+        ...healthScore
+      };
     });
 
-    if (!supplier) {
+    if (!healthData) {
       return res.status(404).json({
         success: false,
         message: 'Supplier not found'
       });
     }
 
-    const bills = await Bill.find({ supplierId: supplier._id }).lean();
-    const healthScore = calculateHealthScore(bills);
-
     res.status(200).json({
       success: true,
-      data: {
-        supplierId: supplier._id,
-        supplierName: supplier.name,
-        ...healthScore
-      }
+      data: healthData
     });
   } catch (error) {
     console.error('Health score error:', error);
@@ -507,6 +534,8 @@ router.post('/bills/check-duplicate', async (req, res) => {
 // @access  Private
 router.post(
   '/bills',
+  authMiddleware,
+  requireEmailVerified,
   [
     body('supplierId')
       .optional()
@@ -637,6 +666,16 @@ router.post(
           }
           await supplier.save();
         }
+
+        // Invalidate caches tied to this supplier and user's forecast
+        await invalidateCache(
+          `supplier:${supplierId}`,
+          `supplier:${supplierId}:health`,
+          `forecast:${req.user._id}`
+        );
+      } else {
+        // Still invalidate the forecast for connection-based bills
+        await invalidateCache(`forecast:${req.user._id}`);
       }
 
       // Populate bill with supplier/connection info and transform for frontend
@@ -994,6 +1033,17 @@ router.put('/bills/:id/pay', async (req, res) => {
     bill.paidDate = new Date();
     await bill.save();
 
+    // Invalidate caches: supplier profile, health score, and forecast
+    if (bill.supplierId) {
+      await invalidateCache(
+        `supplier:${bill.supplierId}`,
+        `supplier:${bill.supplierId}:health`,
+        `forecast:${req.user._id}`
+      );
+    } else {
+      await invalidateCache(`forecast:${req.user._id}`);
+    }
+
     // Populate bill with supplier/connection info and transform for frontend
     const populatedBill = await Bill.findById(bill._id)
       .populate('supplierId', 'name phone address')
@@ -1121,6 +1171,17 @@ router.put(
         }
       }
 
+      // Invalidate caches tied to this supplier and forecast
+      if (bill.supplierId) {
+        await invalidateCache(
+          `supplier:${bill.supplierId}`,
+          `supplier:${bill.supplierId}:health`,
+          `forecast:${req.user._id}`
+        );
+      } else {
+        await invalidateCache(`forecast:${req.user._id}`);
+      }
+
       const populatedBill = await Bill.findById(bill._id)
         .populate('supplierId', 'name phone address');
 
@@ -1187,6 +1248,17 @@ router.delete('/bills/:id', async (req, res) => {
     }
 
     await Bill.findByIdAndDelete(req.params.id);
+
+    // Invalidate caches tied to this supplier and forecast
+    if (bill.supplierId) {
+      await invalidateCache(
+        `supplier:${bill.supplierId}`,
+        `supplier:${bill.supplierId}:health`,
+        `forecast:${req.user._id}`
+      );
+    } else {
+      await invalidateCache(`forecast:${req.user._id}`);
+    }
 
     res.status(200).json({
       success: true,

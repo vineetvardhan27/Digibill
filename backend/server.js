@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
+import redis from './config/redis.js'; // connects on import — logs ✅ / ❌
 import { globalLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
@@ -16,6 +17,10 @@ import supplierConnectionsRoutes from './routes/supplierConnections.js';
 import directoryRoutes from './routes/directory.js';
 import supplierDirectoryRoutes from './routes/supplierDirectory.js';
 import reminderCron from './jobs/reminderCron.js';
+import adminRoutes from './routes/admin.js';
+import paymentRoutes from './routes/payments.js';
+import { startReminderWorker } from './jobs/workers/reminderWorker.js';
+import { startNotificationWorker } from './jobs/workers/notificationWorker.js';
 
 // Load environment variables
 dotenv.config();
@@ -34,7 +39,14 @@ app.use(cors({
   origin: process.env.CLIENT_URL || ['http://localhost:5173', 'http://localhost:8080'],
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    // We need the raw body for Razorpay webhook signature verification
+    if (req.originalUrl.startsWith('/api/payments/webhook')) {
+      req.rawBody = buf;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Apply global rate limiter to all routes
@@ -53,6 +65,8 @@ app.use('/api', apiRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -83,9 +97,17 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
 
-  // Start the payment reminder cron job
-  reminderCron.start();
-});
+    // Start the BullMQ workers
+    startReminderWorker();
+    startNotificationWorker();
+
+    // Start the payment reminder cron job
+    reminderCron.start();
+  });
+}
+
+export default app;

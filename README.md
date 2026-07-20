@@ -1,6 +1,7 @@
 <div align="center">
 
 # Digibill
+![CI](https://github.com/vineetvardhan27/Digibill/actions/workflows/ci.yml/badge.svg)
 
 **Enterprise-grade B2B supplier and invoice management for modern small businesses**
 

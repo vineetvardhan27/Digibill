@@ -1,25 +1,8 @@
-import nodemailer from 'nodemailer';
 import Bill from '../models/Bill.js';
 import ReminderConfig from '../models/ReminderConfig.js';
 import ReminderLog from '../models/ReminderLog.js';
-
-// ─── Email Transporter (lazy-initialized) ───────────────────────────────────
-let transporter = null;
-
-function getTransporter() {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT, 10) || 587,
-      secure: parseInt(process.env.SMTP_PORT, 10) === 465,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-  }
-  return transporter;
-}
+import { reminderQueue } from '../jobs/queues/reminderQueue.js';
+import { sendEmail } from '../lib/email.js';
 
 // ─── Twilio Client (lazy-initialized) ───────────────────────────────────────
 let twilioClient = null;
@@ -120,13 +103,12 @@ function buildEmailHTML({ supplierName, amount, dueDate, billId }) {
 
 // ─── Send Email Reminder ────────────────────────────────────────────────────
 async function sendEmailReminder({ emailAddress, supplierName, amount, dueDate, billId }) {
-  const transport = getTransporter();
   const html = buildEmailHTML({ supplierName, amount, dueDate, billId });
+  const subject = `⏰ Payment Reminder: ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount)} due to ${supplierName}`;
 
-  await transport.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  await sendEmail({
     to: emailAddress,
-    subject: `⏰ Payment Reminder: ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount)} due to ${supplierName}`,
+    subject,
     html
   });
 }
@@ -157,10 +139,13 @@ async function sendWhatsAppReminder({ whatsappNumber, supplierName, amount, dueD
 }
 
 // ─── Send Reminder for a Single Bill ────────────────────────────────────────
-async function sendReminder({ bill, config, daysBefore, isTest = false }) {
+async function sendReminder({ bill, config, daysBefore, isTest = false, isQueue = false }) {
   const supplierName = bill.supplierId?.name || 'Unknown Supplier';
   const { amount, dueDate, _id: billId } = bill;
   const channels = config.channel === 'both' ? ['email', 'whatsapp'] : [config.channel];
+
+  let failedChannels = 0;
+  let lastError = null;
 
   for (const channel of channels) {
     try {
@@ -182,7 +167,7 @@ async function sendReminder({ bill, config, daysBefore, isTest = false }) {
         });
       }
 
-      // Log success (skip logging for test reminders)
+      // Log success (skip logging for test reminders, but DO log for queue reminders)
       if (!isTest) {
         await ReminderLog.create({
           billId,
@@ -197,9 +182,11 @@ async function sendReminder({ bill, config, daysBefore, isTest = false }) {
       console.log(`  ✅ [${channel}] Reminder sent for bill ${billId} (${daysBefore}d before)`);
     } catch (error) {
       console.error(`  ❌ [${channel}] Failed for bill ${billId}:`, error.message);
+      failedChannels++;
+      lastError = error;
 
       // Log failure (skip logging for test reminders)
-      if (!isTest) {
+      if (!isTest && !isQueue) {
         await ReminderLog.create({
           billId,
           userId: config.userId,
@@ -216,6 +203,12 @@ async function sendReminder({ bill, config, daysBefore, isTest = false }) {
         throw error;
       }
     }
+  }
+
+  // For BullMQ: if ANY channel failed, we throw so the job is retried.
+  // We only throw if it's a queued job.
+  if (isQueue && failedChannels > 0) {
+    throw lastError;
   }
 }
 
@@ -289,6 +282,75 @@ async function processReminders() {
   return { processed: totalProcessed, sent: totalSent, failed: totalFailed };
 }
 
+// ─── Queue All Reminders (BullMQ path) ──────────────────────────────────────
+async function queueReminders() {
+  const now = new Date();
+  console.log(`\n📬 [ReminderService] Starting queueing process at ${now.toISOString()}`);
+
+  const configs = await ReminderConfig.find({ enabled: true });
+
+  if (configs.length === 0) {
+    console.log('  ℹ️  No enabled reminder configs found. Skipping.');
+    return { processed: 0, queued: 0 };
+  }
+
+  let totalProcessed = 0;
+  let totalQueued = 0;
+
+  for (const config of configs) {
+    try {
+      const { userId, reminderDaysBefore } = config;
+
+      for (const daysBefore of reminderDaysBefore) {
+        const targetDate = new Date();
+        targetDate.setHours(0, 0, 0, 0);
+        targetDate.setDate(targetDate.getDate() + daysBefore);
+
+        const targetDateEnd = new Date(targetDate);
+        targetDateEnd.setHours(23, 59, 59, 999);
+
+        const bills = await Bill.find({
+          createdBy: userId,
+          isPaid: false,
+          dueDate: { $gte: targetDate, $lte: targetDateEnd }
+        }).populate('supplierId', 'name');
+
+        for (const bill of bills) {
+          const existingLog = await ReminderLog.findOne({
+            billId: bill._id,
+            userId,
+            daysBefore,
+            status: 'sent'
+          });
+
+          if (existingLog) {
+            console.log(`  ⏭️  Skipping bill ${bill._id} — already reminded for ${daysBefore}d window`);
+            continue;
+          }
+
+          totalProcessed++;
+
+          try {
+            await reminderQueue.add(
+              `send-reminder-${bill._id}-${daysBefore}`, 
+              { bill, config, daysBefore }
+            );
+            totalQueued++;
+            console.log(`  ➕ Queued reminder for bill ${bill._id}`);
+          } catch (e) {
+            console.error(`  ❌ Failed to queue reminder for bill ${bill._id}:`, e.message);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`  ❌ Error processing config for user ${config.userId}:`, error.message);
+    }
+  }
+
+  console.log(`📬 [ReminderService] Completed queueing — Processed: ${totalProcessed}, Queued: ${totalQueued}\n`);
+  return { processed: totalProcessed, queued: totalQueued };
+}
+
 // ─── Send Test Reminder ─────────────────────────────────────────────────────
 async function sendTestReminder(userId) {
   const config = await ReminderConfig.findOne({ userId });
@@ -325,6 +387,7 @@ async function sendTestReminder(userId) {
 
 export default {
   processReminders,
+  queueReminders,
   sendTestReminder,
   sendReminder
 };

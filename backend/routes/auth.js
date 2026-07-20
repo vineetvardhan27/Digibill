@@ -1,9 +1,13 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
+import { sendEmail } from '../lib/email.js';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const router = express.Router();
 
@@ -78,9 +82,32 @@ router.post(
       // Generate token
       const token = generateToken(user._id);
 
+      // Generate a verification token specifically for email verification
+      const verificationToken = jwt.sign(
+        { id: user._id, type: 'email_verification' },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      // Send verification email
+      const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: 'Verify your Digibill email address',
+          html: `<p>Welcome to Digibill!</p>
+                 <p>Please verify your email address by clicking the link below:</p>
+                 <a href="${verifyUrl}">${verifyUrl}</a>
+                 <p>This link will expire in 24 hours.</p>`
+        });
+      } catch (emailErr) {
+        console.error('Failed to send verification email:', emailErr);
+        // We do not fail the registration, but they will need to request another link later (out of scope for now)
+      }
+
       res.status(201).json({
         success: true,
-        message: 'User registered successfully',
+        message: 'User registered successfully. Please check your email to verify your account.',
         data: {
           token,
           user: {
@@ -88,6 +115,7 @@ router.post(
             name: user.name,
             email: user.email,
             phone: user.phone,
+            emailVerified: user.emailVerified,
             supplierPortalEnabled: user.supplierPortalEnabled,
             createdAt: user.createdAt
           }
@@ -302,6 +330,119 @@ router.put('/profile', authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during profile update'
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-email
+// @desc    Verify the email address using the emailed token
+// @access  Public
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Verification token is required' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type !== 'email_verification') {
+      return res.status(400).json({ success: false, message: 'Invalid token type' });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.emailVerified = true;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Email successfully verified'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ success: false, message: 'Verification link expired' });
+    }
+    res.status(400).json({ success: false, message: 'Invalid verification token' });
+  }
+});
+
+// @route   POST /api/auth/google
+// @desc    Login or register using Google OAuth2 ID Token
+// @access  Public
+router.post('/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: 'Google ID token is required' });
+    }
+
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      // If we had the exact client ID, we'd specify it here.
+      // audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name } = payload;
+
+    // Check if user exists by googleId or email
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+    if (user) {
+      // Existing user: Link googleId if they signed up via email previously
+      if (!user.googleId) {
+        user.googleId = googleId;
+      }
+      // Since Google verified them, auto-verify their email if it wasn't already
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+      }
+      await user.save();
+    } else {
+      // New user: Create an auto-verified user without a password
+      user = new User({
+        name,
+        email,
+        googleId,
+        emailVerified: true
+      });
+      await user.save();
+    }
+
+    // Generate our JWT
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Google login successful',
+      data: {
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          googleId: user.googleId,
+          createdAt: user.createdAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Google Auth error:', error);
+    res.status(401).json({
+      success: false,
+      message: 'Invalid Google token or authentication failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

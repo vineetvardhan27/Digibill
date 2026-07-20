@@ -1,5 +1,6 @@
 import express from 'express';
 import authMiddleware from '../middleware/authMiddleware.js';
+import { idempotencyMiddleware } from '../middleware/idempotency.js';
 import ReminderConfig from '../models/ReminderConfig.js';
 import ReminderLog from '../models/ReminderLog.js';
 import reminderService from '../services/reminderService.js';
@@ -117,7 +118,7 @@ router.get('/logs', async (req, res) => {
 
 // ─── POST /api/reminders/test ───────────────────────────────────────────────
 // Send a test reminder to verify the user's config (not logged)
-router.post('/test', async (req, res) => {
+router.post('/test', authMiddleware, idempotencyMiddleware, async (req, res) => {
   try {
     const result = await reminderService.sendTestReminder(req.user._id);
 

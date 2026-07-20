@@ -18,7 +18,15 @@ function start() {
     console.log(`\n🕘 [ReminderCron] Job started at ${startTime.toISOString()}`);
 
     try {
-      const result = await reminderService.processReminders();
+      let result;
+      if (process.env.REMINDERS_USE_QUEUE === 'true') {
+        console.log(`🕘 [ReminderCron] Feature flag REMINDERS_USE_QUEUE=true. Queueing jobs via BullMQ.`);
+        result = await reminderService.queueReminders();
+      } else {
+        console.log(`🕘 [ReminderCron] Feature flag REMINDERS_USE_QUEUE=false. Processing inline.`);
+        result = await reminderService.processReminders();
+      }
+
       const endTime = new Date();
       const durationMs = endTime - startTime;
       console.log(`🕘 [ReminderCron] Job completed at ${endTime.toISOString()} (took ${durationMs}ms)`);

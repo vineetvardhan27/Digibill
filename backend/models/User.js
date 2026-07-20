@@ -21,6 +21,15 @@ const userSchema = new mongoose.Schema(
         'Please provide a valid email address'
       ]
     },
+    emailVerified: {
+      type: Boolean,
+      default: false
+    },
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true
+    },
     phone: {
       type: String,
       trim: true,
@@ -38,7 +47,10 @@ const userSchema = new mongoose.Schema(
     },
     passwordHash: {
       type: String,
-      required: [true, 'Password is required'],
+      required: [
+        function() { return !this.googleId; },
+        'Password is required'
+      ],
       minlength: [6, 'Password must be at least 6 characters long']
     },
     supplierPortalEnabled: {

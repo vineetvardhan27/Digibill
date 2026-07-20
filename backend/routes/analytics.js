@@ -2,6 +2,7 @@ import express from 'express';
 import Bill from '../models/Bill.js';
 import Supplier from '../models/Supplier.js';
 import authMiddleware from '../middleware/authMiddleware.js';
+import { getOrSetCache } from '../lib/cache.js';
 
 const router = express.Router();
 
@@ -494,8 +495,13 @@ router.get('/analytics/forecast', async (req, res) => {
     // Cap at 90 days
     if (days > 90) days = 90;
 
-    const { generateForecast } = await import('../services/forecastService.js');
-    const forecast = await generateForecast(userId, days);
+    // Cache key includes userId; TTL 1800s (30 min) since forecast
+    // is the most expensive read and data changes infrequently intraday.
+    const cacheKey = `forecast:${userId}`;
+    const forecast = await getOrSetCache(cacheKey, 1800, async () => {
+      const { generateForecast } = await import('../services/forecastService.js');
+      return generateForecast(userId, days);
+    });
 
     res.status(200).json({
       success: true,
