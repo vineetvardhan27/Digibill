@@ -6,6 +6,8 @@ export interface User {
   _id?: string; // MongoDB ID
   name: string;
   email: string;
+  emailVerified?: boolean;
+  googleId?: string;
   phone?: string;
   shopName?: string;
   shopAddress?: string;

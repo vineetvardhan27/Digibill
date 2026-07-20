@@ -371,6 +371,49 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/resend-verification
+// @desc    Resend verification email
+// @access  Public
+router.post('/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Return 200 anyway to prevent email enumeration
+      return res.status(200).json({ success: true, message: 'If the email exists, a verification link has been sent.' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ success: false, message: 'Email is already verified' });
+    }
+
+    const verificationToken = jwt.sign(
+      { id: user._id, type: 'email_verification' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
+    
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify your Digibill email address',
+      html: `<p>Please verify your email address by clicking the link below:</p>
+             <a href="${verifyUrl}">${verifyUrl}</a>
+             <p>This link will expire in 24 hours.</p>`
+    });
+
+    res.status(200).json({ success: true, message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // @route   POST /api/auth/google
 // @desc    Login or register using Google OAuth2 ID Token
 // @access  Public

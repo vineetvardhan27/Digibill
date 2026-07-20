@@ -7,6 +7,8 @@ interface User {
   id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
+  googleId?: string;
   phone?: string;
   shopName?: string;
   shopAddress?: string;
@@ -19,6 +21,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
+  googleLogin: (idToken: string) => Promise<void>;
   updateUser: (user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -113,6 +116,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Google Login function
+  const googleLogin = async (idToken: string) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API_URL}/auth/google`, { idToken });
+      
+      if (response.data.success) {
+        const { token: newToken, user: userData } = response.data.data;
+        setToken(newToken);
+        setUser(userData);
+        localStorage.setItem('token', newToken);
+      } else {
+        throw new Error(response.data.message || 'Google login failed');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Google login failed';
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Logout function
   const logout = () => {
     setUser(null);
@@ -126,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     login,
     register,
+    googleLogin,
     updateUser: setUser,
     logout,
     isAuthenticated: !!token && !!user,

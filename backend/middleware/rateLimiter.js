@@ -10,7 +10,10 @@
 
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
+import dotenv from 'dotenv';
 import redis from '../lib/redis.js';
+
+dotenv.config();
 
 // ─── Store Factory ──────────────────────────────────────────────────────────
 const useRedis = (process.env.RATE_LIMIT_STORE || 'redis') === 'redis';

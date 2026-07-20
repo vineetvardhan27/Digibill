@@ -14,19 +14,29 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor to add token
+// Request interceptor to add token and idempotency key
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Phase 4: Idempotency
+    // Automatically inject an Idempotency-Key for sensitive endpoints if not already provided
+    const isIdempotentRoute = config.url?.match(/\/(payments|reminders)/i) && config.method?.toLowerCase() === 'post';
+    if (isIdempotentRoute && !config.headers['Idempotency-Key']) {
+      config.headers['Idempotency-Key'] = crypto.randomUUID();
+    }
+
     return config;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
+
+import { toast } from 'sonner';
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
@@ -36,6 +46,12 @@ apiClient.interceptors.response.use(
       // Token expired or invalid
       localStorage.removeItem('token');
       window.location.href = '/login';
+    }
+    
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      const seconds = retryAfter ? parseInt(retryAfter as string, 10) : 60;
+      toast.error(`Too many requests, try again in ${seconds}s`);
     }
     
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
@@ -58,6 +74,21 @@ export const authAPI = {
 
   me: async () => {
     const response = await apiClient.get('/auth/me');
+    return response.data;
+  },
+
+  verifyEmail: async (token: string) => {
+    const response = await apiClient.post('/auth/verify-email', { token });
+    return response.data;
+  },
+
+  resendVerification: async (email: string) => {
+    const response = await apiClient.post('/auth/resend-verification', { email });
+    return response.data;
+  },
+
+  googleLogin: async (idToken: string) => {
+    const response = await apiClient.post('/auth/google', { idToken });
     return response.data;
   },
 
@@ -212,6 +243,22 @@ export const connectionAPI = {
     }>(`/connections/${id}/notes`, { shopNotes });
     return response.data;
   }
+};
+
+export const paymentAPI = {
+  // Phase 6: Razorpay Integration
+  createOrder: async (billId: string) => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: {
+        orderId: string;
+        amount: number;
+        currency: string;
+        keyId: string;
+      };
+    }>('/payments/orders', { billId });
+    return response.data;
+  },
 };
 
 export const supplierConnectionAPI = {

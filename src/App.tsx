@@ -10,6 +10,8 @@ import { LandingPage } from "./pages/LandingPage";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { SupplierAuthProvider } from "@/contexts/SupplierAuthContext";
 import { SupplierProtectedRoute } from "@/components/supplier/SupplierProtectedRoute";
@@ -32,19 +34,22 @@ import { ShopConnectionDetailPage } from "@/pages/supplier-account/ShopConnectio
 import { ConnectionDetailPage } from "@/pages/ConnectionDetailPage";
 
 const queryClient = new QueryClient();
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id.apps.googleusercontent.com';
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
+  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
           <SupplierAuthProvider>
             <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/" element={<LandingPage />} />
             <Route
               path="/:tab"
               element={
@@ -101,9 +106,10 @@ const App = () => (
           </Routes>
         </SupplierAuthProvider>
       </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </GoogleOAuthProvider>
 );
 
 export default App;

@@ -27,8 +27,10 @@ import { formatCurrency, formatDate } from "@/lib/mockData";
 import { Bill, Supplier } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { billAPI, supplierAPI, connectionAPI } from "@/lib/api";
+import { billAPI, supplierAPI, connectionAPI, paymentAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { useOCRScan } from "@/hooks/useOCRScan";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import { BillScanUploader } from "@/components/OCR/BillScanUploader";
 import { GSTLineItemEditor } from "@/components/bills/GSTLineItemEditor";
 import { Download } from "lucide-react";
@@ -45,6 +47,12 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
   const [loading, setLoading] = useState(true);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [openDisputes, setOpenDisputes] = useState<any[]>([]);
+  const { user } = useAuth();
+  
+  // Razorpay
+  const isRazorpayLoaded = useRazorpay();
+  const [payingBillId, setPayingBillId] = useState<string | null>(null);
+  const [pollingBillId, setPollingBillId] = useState<string | null>(null);
 
   // Fetch bills and suppliers on mount
   useEffect(() => {
@@ -136,6 +144,95 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
     }
   };
 
+  // Poll bill status after Razorpay authorization
+  useEffect(() => {
+    if (!pollingBillId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await billAPI.getBills({});
+        const billsArray = Array.isArray(response.data.bills) ? response.data.bills : [];
+        const updatedBill = billsArray.find(b => (b._id || b.id) === pollingBillId);
+        
+        if (updatedBill?.isPaid) {
+          setBills(billsArray); // Sync all bills
+          setPollingBillId(null);
+          toast.success("Payment confirmed successfully!");
+        }
+      } catch (err) {
+        console.error("Error polling bill status", err);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    // Timeout polling after 30 seconds
+    const timeout = setTimeout(() => {
+      setPollingBillId(null);
+      toast.error("Payment confirmation is taking longer than usual. Please check back later.");
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [pollingBillId]);
+
+  const handleRazorpayPayment = async (billId: string) => {
+    if (!isRazorpayLoaded) {
+      toast.error("Payment gateway is loading. Please try again in a moment.");
+      return;
+    }
+
+    try {
+      setPayingBillId(billId);
+      
+      // 1. Create order on backend
+      const { data: orderData } = await paymentAPI.createOrder(billId);
+      
+      // 2. Initialize Razorpay options
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Digibill",
+        description: `Payment for Bill #${billId.slice(-6)}`,
+        order_id: orderData.orderId,
+        handler: function (response: any) {
+          // The payment was authorized on the client side.
+          // Now we poll the backend to wait for the webhook to confirm it.
+          setPayingBillId(null);
+          setPollingBillId(billId);
+          toast.info("Payment authorized! Waiting for confirmation...");
+        },
+        prefill: {
+          name: user?.name,
+          email: user?.email,
+          contact: user?.phone
+        },
+        theme: {
+          color: "#3399cc"
+        },
+        modal: {
+          ondismiss: function () {
+            setPayingBillId(null);
+            toast.error("Payment cancelled");
+          }
+        }
+      };
+
+      // 3. Open Razorpay Checkout
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        setPayingBillId(null);
+        toast.error(`Payment Failed: ${response.error.description}`);
+      });
+      rzp.open();
+
+    } catch (error: any) {
+      setPayingBillId(null);
+      toast.error(error.response?.data?.message || error.message || "Failed to initiate payment");
+    }
+  };
+
   return (
     <CatchError>
       <div className={cn("min-h-screen", hideHeader ? "pt-2" : "")}>
@@ -148,6 +245,12 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
             suppliers={suppliers} 
             defaultConnectionId={connectionId} 
             onSuccess={() => fetchBills()} 
+            trigger={
+              <Button className="gap-2 shadow-lg hover:shadow-xl transition-all" disabled={user?.emailVerified === false}>
+                <Plus className="h-5 w-5" />
+                Add New Bill
+              </Button>
+            }
           />
         </div>
 
@@ -238,16 +341,40 @@ export function BillsView({ connectionId, hideHeader }: { connectionId?: string;
                       </p>
                     </div>
                     {!bill.isPaid && (
-                      <Button
-                        variant="default"
-                        className="shadow-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMarkAsPaid(bill._id || bill.id || '');
-                        }}
-                      >
-                        Mark Paid
-                      </Button>
+                      <div className="flex gap-2">
+                        {pollingBillId === (bill._id || bill.id) ? (
+                          <div className="flex items-center gap-2 text-primary font-medium">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Processing...
+                          </div>
+                        ) : (
+                          <>
+                            <Button
+                              variant="default"
+                              className="shadow-lg"
+                              disabled={payingBillId === (bill._id || bill.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRazorpayPayment(bill._id || bill.id || '');
+                              }}
+                            >
+                              {payingBillId === (bill._id || bill.id) ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : null}
+                              Pay via UPI
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsPaid(bill._id || bill.id || '');
+                              }}
+                            >
+                              Mark Paid
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
 

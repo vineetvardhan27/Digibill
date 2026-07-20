@@ -8,17 +8,19 @@ import { OCRScanView } from "@/components/views/OCRScanView";
 import { AnalyticsView } from "@/components/views/AnalyticsView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { ForecastView } from "@/components/views/ForecastView";
+import { AdminQueueView } from "@/components/views/AdminQueueView";
 import { DisputesPage } from "@/pages/DisputesPage";
 import SupplierDirectoryPage from "@/pages/SupplierDirectoryPage";
 import PendingConnectionsPage from "@/pages/PendingConnectionsPage";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { UnverifiedBanner } from "@/components/dashboard/UnverifiedBanner";
 import { CatchError } from "@/components/CatchError";
 
 const Index = () => {
   const { tab } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const validTabs = ["dashboard", "connections", "bills", "scan", "analytics", "forecast", "settings", "disputes", "directory", "connections-pending"];
+  const validTabs = ["dashboard", "connections", "bills", "scan", "analytics", "forecast", "queue", "settings", "disputes", "directory", "connections-pending"];
   
   // Determine active tab based on pathname or tab param
   let activeTab = "dashboard";
@@ -61,6 +63,8 @@ const Index = () => {
         return <AnalyticsView />;
       case "forecast":
         return <ForecastView />;
+      case "queue":
+        return <AdminQueueView />;
       case "settings":
         return <SettingsView />;
       case "disputes":
@@ -81,6 +85,7 @@ const Index = () => {
         <MobileNav activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
       <div className="ml-0 md:ml-64 pb-20 md:pb-0">
+        <UnverifiedBanner />
         <div className="min-h-screen">
           {renderView()}
         </div>

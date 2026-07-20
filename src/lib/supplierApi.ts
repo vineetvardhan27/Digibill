@@ -25,7 +25,9 @@ supplierApiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add a response interceptor to handle token expiry
+import { toast } from 'sonner';
+
+// Add a response interceptor to handle token expiry and rate limiting
 supplierApiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -34,6 +36,13 @@ supplierApiClient.interceptors.response.use(
       // We don't want to force redirect if they are on a public page,
       // the context/router will handle redirecting unauthenticated users.
     }
+    
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      const seconds = retryAfter ? parseInt(retryAfter as string, 10) : 60;
+      toast.error(`Too many requests, try again in ${seconds}s`);
+    }
+    
     return Promise.reject(error);
   }
 );

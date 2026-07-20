@@ -14,24 +14,32 @@ import redis from './redis.js';
  * @param {() => Promise<T>} fetchFn   Async function that produces the value on cache miss
  * @returns {Promise<T>}
  */
+const timeoutPromise = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), ms));
+
 export async function getOrSetCache(key, ttlSeconds, fetchFn) {
   try {
-    const cached = await redis.get(key);
+    const cached = await Promise.race([
+      redis.get(key),
+      timeoutPromise(1000)
+    ]);
     if (cached !== null) {
       return JSON.parse(cached);
     }
   } catch (err) {
-    // Redis down — fall through to Mongo
-    console.warn(`⚠️  Redis GET failed for "${key}":`, err.message);
+    // Redis down or timed out — fall through to Mongo
+    console.warn(`⚠️  Redis GET failed/timeout for "${key}"`);
   }
 
   // Cache miss — fetch from the source of truth
   const freshData = await fetchFn();
 
   try {
-    await redis.set(key, JSON.stringify(freshData), 'EX', ttlSeconds);
+    await Promise.race([
+      redis.set(key, JSON.stringify(freshData), 'EX', ttlSeconds),
+      timeoutPromise(1000)
+    ]);
   } catch (err) {
-    console.warn(`⚠️  Redis SET failed for "${key}":`, err.message);
+    console.warn(`⚠️  Redis SET failed/timeout for "${key}"`);
   }
 
   return freshData;
@@ -48,8 +56,11 @@ export async function getOrSetCache(key, ttlSeconds, fetchFn) {
 export async function invalidateCache(...keys) {
   if (keys.length === 0) return;
   try {
-    await redis.del(...keys);
+    await Promise.race([
+      redis.del(...keys),
+      timeoutPromise(1000)
+    ]);
   } catch (err) {
-    console.warn('⚠️  Redis DEL failed:', err.message);
+    console.warn(`⚠️  Redis DEL failed/timeout for keys: ${keys.join(', ')}`);
   }
 }

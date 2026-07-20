@@ -1,7 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Store, CheckCircle2, AlertCircle, Camera, Users, Bell, Activity, TrendingUp, Receipt, ChevronDown, Check, X, Shield, Star, Zap } from 'lucide-react';
+import { Store, CheckCircle2, AlertCircle, Camera, Users, Bell, Activity, TrendingUp, Receipt, ChevronDown, Check, X, Shield, Star, Zap, ArrowRight, Bot, CreditCard } from 'lucide-react';
+import AnimatedBillScanner from '@/components/landing/AnimatedBillScanner';
+import SupplierFlowDemo from '@/components/landing/SupplierFlowDemo';
+import ReminderTimeline from '@/components/landing/ReminderTimeline';
+import HealthScoreCard from '@/components/landing/HealthScoreCard';
+import CashFlowChart from '@/components/landing/CashFlowChart';
+import GSTTableDemo from '@/components/landing/GSTTableDemo';
+import HowItWorksWorkflow from '@/components/landing/workflow/HowItWorksWorkflow';
 import { Button } from '@/components/ui/button';
 
 export function LandingPage() {
@@ -14,6 +21,47 @@ export function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const counterRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    let frameId: number;
+    let cycleTimeout: NodeJS.Timeout;
+
+    const startCycle = () => {
+      if (counterRef.current) counterRef.current.innerText = '₹0';
+      
+      cycleTimeout = setTimeout(() => {
+        const duration = 400;
+        const target = 12500;
+        const startTime = Date.now();
+        
+        const animate = () => {
+          const now = Date.now();
+          const progress = Math.min((now - startTime) / duration, 1);
+          const easeProgress = progress * (2 - progress);
+          const current = Math.floor(target * easeProgress);
+          
+          if (counterRef.current) {
+            counterRef.current.innerText = `₹${current.toLocaleString('en-IN')}`;
+          }
+          
+          if (progress < 1) {
+            frameId = requestAnimationFrame(animate);
+          }
+        };
+        frameId = requestAnimationFrame(animate);
+      }, 1750);
+    };
+
+    startCycle();
+    const interval = setInterval(startCycle, 2500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(cycleTimeout);
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -41,6 +89,9 @@ export function LandingPage() {
         if (entry.isIntersecting) {
           entry.target.classList.add('animate-slide-up');
           entry.target.classList.replace('opacity-0', 'opacity-100');
+          if (entry.target.classList.contains('line-draw')) {
+            entry.target.classList.add('animate-draw-line');
+          }
         }
       });
     }, observerOptions);
@@ -86,8 +137,40 @@ export function LandingPage() {
           0% { transform: translateY(0); }
           100% { transform: translateY(-50%); }
         }
+        @keyframes travel-dot {
+          0%, 15% { left: 0; opacity: 0; }
+          25% { opacity: 1; }
+          70% { left: 100%; opacity: 1; transform: translateX(-100%); }
+          80%, 100% { left: 100%; opacity: 0; transform: translateX(-100%); }
+        }
+        @keyframes pulse-ring {
+          0%, 65% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+          70% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4); }
+          85%, 100% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+        }
+        @keyframes draw-line {
+          0% { right: 85%; }
+          100% { right: 15%; }
+        }
+        @keyframes ambient-drift {
+          0%, 100% { transform: translate(-50%, -50%); }
+          50% { transform: translate(-45%, -55%); }
+        }
         .animate-custom-ticker {
           animation: custom-ticker 20s linear infinite;
+        }
+        .animate-travel-dot {
+          animation: travel-dot 2.5s ease-in-out infinite;
+        }
+        .animate-pulse-ring {
+          animation: pulse-ring 2.5s infinite;
+        }
+        .animate-draw-line {
+          animation: draw-line 0.6s ease-out forwards;
+          animation-delay: 0.15s;
+        }
+        .animate-ambient-drift {
+          animation: ambient-drift 10s ease-in-out infinite;
         }
         .ticker-mask {
           mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
@@ -120,24 +203,35 @@ export function LandingPage() {
             </Button>
           </div>
 
-          <button className="md:hidden text-foreground" onClick={toggleMenu}>
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Store className="h-6 w-6" />}
+          <button className="md:hidden text-foreground relative w-6 h-6" onClick={toggleMenu}>
+            <X className={`absolute inset-0 h-6 w-6 transition-all duration-200 ${isMobileMenuOpen ? 'opacity-100 rotate-0' : 'opacity-0 -rotate-90'}`} />
+            <Store className={`absolute inset-0 h-6 w-6 transition-all duration-200 ${isMobileMenuOpen ? 'opacity-0 rotate-90' : 'opacity-100 rotate-0'}`} />
           </button>
         </div>
       </nav>
 
       {/* Mobile Menu */}
       <div className={`fixed inset-0 bg-background z-40 p-6 pt-24 flex flex-col gap-6 transform transition-transform duration-300 ${isMobileMenuOpen ? 'translate-y-0' : '-translate-y-full'}`}>
-        <a href="#features" className="text-xl font-semibold" onClick={toggleMenu}>Features</a>
-        <a href="#how-it-works" className="text-xl font-semibold" onClick={toggleMenu}>How it Works</a>
-        <a href="#pricing" className="text-xl font-semibold" onClick={toggleMenu}>Pricing</a>
-        <Link to="/supplier/login" className="text-xl font-semibold" onClick={toggleMenu}>Supplier Portal</Link>
-        <div className="h-px bg-border my-2" />
-        <Link to="/login" className="text-xl font-medium text-muted-foreground" onClick={toggleMenu}>Shop Login</Link>
-        <Link to="/supplier/login" className="text-xl font-medium text-muted-foreground" onClick={toggleMenu}>Supplier Login</Link>
-        <Button asChild size="lg" className="w-full mt-4">
-          <Link to="/register" onClick={toggleMenu}>Create Shop</Link>
-        </Button>
+        {[
+          { text: 'Features', href: '#features' },
+          { text: 'How it Works', href: '#how-it-works' },
+          { text: 'Pricing', href: '#pricing' },
+          { text: 'Supplier Portal', href: '/supplier/login', isLink: true },
+          { isDivider: true },
+          { text: 'Shop Login', href: '/login', isLink: true, className: 'text-muted-foreground font-medium' },
+          { text: 'Supplier Login', href: '/supplier/login', isLink: true, className: 'text-muted-foreground font-medium' },
+        ].map((item, i) => (
+          item.isDivider ? 
+            <div key={i} className={`h-px bg-border my-2 transition-all duration-300 delay-[${i * 50}ms] ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} style={{ transitionDelay: `${i * 0.05}s` }} /> :
+          item.isLink ? 
+            <Link key={i} to={item.href!} className={`text-xl font-semibold transition-all duration-500 ${item.className || ''} ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${i * 0.05}s` }} onClick={toggleMenu}>{item.text}</Link> :
+            <a key={i} href={item.href!} className={`text-xl font-semibold transition-all duration-500 ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${i * 0.05}s` }} onClick={toggleMenu}>{item.text}</a>
+        ))}
+        <div className={`transition-all duration-500 ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `0.4s` }}>
+          <Button asChild size="lg" className="w-full mt-4">
+            <Link to="/register" onClick={toggleMenu}>Create Shop</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Hero Section */}
@@ -172,6 +266,8 @@ export function LandingPage() {
               <span className="flex items-center gap-1"><CheckCircle2 className="w-4 h-4 text-success" /> Setup in 10 minutes</span>
               <span className="hidden sm:inline">·</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="w-4 h-4 text-success" /> Free for 1 shop</span>
+              <span className="hidden sm:inline">·</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-4 h-4 text-success" /> Pay suppliers via UPI</span>
             </div>
           </div>
 
@@ -210,67 +306,270 @@ export function LandingPage() {
       <section className="border-y border-border bg-muted/20 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center reveal opacity-0">
           <p className="text-sm font-semibold text-muted-foreground mb-6 tracking-wide uppercase">Trusted by shop owners across India</p>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16 items-center grayscale opacity-70">
-            <span className="text-xl font-bold tracking-tighter">ShopKart Pro</span>
-            <span className="text-xl font-bold tracking-tighter">Kirana360</span>
-            <span className="text-xl font-bold tracking-tighter flex items-center gap-1"><Store className="w-5 h-5"/> VyaparMart</span>
-            <span className="text-xl font-bold tracking-tighter">BillingHub</span>
-            <span className="text-xl font-bold tracking-tighter">RetailSetu</span>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-16 items-center">
+            <span className="text-xl font-bold tracking-tighter grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-default">ShopKart Pro</span>
+            <span className="text-xl font-bold tracking-tighter grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-default">Kirana360</span>
+            <span className="text-xl font-bold tracking-tighter flex items-center gap-1 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-default"><Store className="w-5 h-5"/> VyaparMart</span>
+            <span className="text-xl font-bold tracking-tighter grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-default">BillingHub</span>
+            <span className="text-xl font-bold tracking-tighter grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-default">RetailSetu</span>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16 reveal opacity-0">
-          <h2 className="text-primary font-semibold tracking-wide uppercase text-sm mb-3">What Digibill Does</h2>
-          <p className="text-3xl sm:text-4xl font-extrabold tracking-tight">Built for how Indian shops actually work</p>
-        </div>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[
-            { icon: Camera, title: "AI Bill Scanning", desc: "Photograph any invoice. Digibill reads the supplier name, amount, and due date in seconds using Groq Vision AI.", color: "text-primary" },
-            { icon: Users, title: "Supplier Portal", desc: "Give suppliers their own login. They view invoices, acknowledge bills, raise disputes, and upload their version — without calling you.", color: "text-accent" },
-            { icon: Bell, title: "Payment Reminders", desc: "Bills due tomorrow shouldn't surprise you. Automated WhatsApp and email reminders go out 3 days before, so nothing slips.", color: "text-warning" },
-            { icon: Shield, title: "Health Scores", desc: "Every supplier gets a credit score based on your payment history. Know who's reliable before you overextend.", color: "text-success" },
-            { icon: TrendingUp, title: "Cash Flow Forecast", desc: "See money going out over the next 30 and 90 days, based on your bill history. Plan inventory purchases around what's coming.", color: "text-primary" },
-            { icon: Receipt, title: "GST Line Items", desc: "Log CGST, SGST, and IGST per line item. Export clean GST summaries when filing time comes.", color: "text-accent" },
-          ].map((feature, i) => (
-            <div key={i} className="bg-card border border-border p-8 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-200 reveal opacity-0 group" style={{ transitionDelay: `${i * 0.1}s` }}>
-              <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
-                <feature.icon className={`w-6 h-6 ${feature.color}`} />
-              </div>
-              <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{feature.desc}</p>
+      {/* Instant UPI Payments Section */}
+      <section className="py-20 lg:py-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-0 items-center">
+          <div className="text-center lg:text-left reveal opacity-0 relative z-10 lg:pr-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-6 ml-4 lg:ml-0">
+              <Zap className="w-8 h-8" />
             </div>
-          ))}
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-6 max-w-[520px] mx-auto lg:mx-0">Pay suppliers instantly via UPI</h2>
+            <p className="text-xl text-muted-foreground leading-relaxed max-w-[520px] mx-auto lg:mx-0">
+              Settle bills directly from your dashboard. No more switching apps, no more manual reconciliation, and no more chasing bank transfers. Digibill syncs the payment automatically.
+            </p>
+          </div>
+
+          <div className="reveal opacity-0 w-full max-w-lg mx-auto lg:-translate-x-8 lg:-translate-y-4 relative z-20">
+            {/* Primary Glow Background */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] pointer-events-none -z-10" />
+            
+            <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 glass-strong">
+              <div className="flex justify-between items-center mb-10">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment Status</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-success flex items-center gap-1 motion-safe:animate-pulse-slow rounded-full px-2 py-0.5 bg-success/10" style={{ animationDuration: '4s' }}>
+                  <CheckCircle2 className="w-3 h-3" /> Paid
+                </span>
+              </div>
+              
+              <div className="relative flex items-center justify-between mb-10 px-4">
+                {/* Connecting Line */}
+                <div className="absolute left-12 right-12 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-border z-0"></div>
+                
+                {/* Traveling Dot */}
+                <div className="absolute left-12 right-12 top-1/2 -translate-y-1/2 z-10 motion-safe:animate-travel-dot motion-reduce:hidden">
+                  <div className="w-3 h-3 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.8)] animate-pulse"></div>
+                </div>
+
+                {/* Reduced Motion Static Dot */}
+                <div className="absolute right-12 top-1/2 -translate-y-1/2 -translate-x-full z-10 hidden motion-reduce:block">
+                  <div className="w-3 h-3 bg-success rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+                </div>
+
+                {/* Shop Icon */}
+                <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-white z-10 shadow-lg">
+                  <Store className="w-6 h-6" />
+                </div>
+                
+                {/* Supplier Icon */}
+                <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center text-white z-10 shadow-lg motion-safe:animate-pulse-ring">
+                  <span className="font-bold text-lg">RT</span>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-1 font-semibold">Amount Transferred</p>
+                <div className="text-4xl font-extrabold text-foreground tracking-tight h-12 flex items-center justify-center">
+                  <span className="motion-reduce:hidden" ref={counterRef}>₹0</span>
+                  <span className="hidden motion-reduce:block text-success">₹12,500</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* Features Showcase */}
+      <section id="features" className="py-24 sm:py-32 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-32 md:mb-48 reveal opacity-0">
+            <h2 className="text-primary font-semibold tracking-wide uppercase text-sm mb-3">What Digibill Does</h2>
+            <p className="text-3xl sm:text-5xl font-extrabold tracking-tight">Built for how Indian shops actually work</p>
+          </div>
+          
+          <div className="space-y-32 md:space-y-[200px] relative">
+            
+            {/* Central Connecting Line */}
+            <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-[5%] bottom-[5%] w-px border-l-2 border-dashed border-border/40 -z-20" />
+            
+            {/* Feature 1: AI Bill Scanning (Demo 60%, Text 40%, Top-left glow) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-0 items-center relative reveal opacity-0">
+              <div className="absolute top-[-100px] left-[-100px] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+              <div className="col-span-1 md:col-span-7 relative z-10">
+                <div className="w-full [&>div]:!max-w-[520px] md:-rotate-1 md:hover:rotate-0 hover:-translate-y-2 transition-all duration-500 ease-out">
+                  <AnimatedBillScanner />
+                </div>
+                {/* Floating Badge */}
+                <div className="hidden md:flex absolute -right-6 top-1/4 bg-background/80 backdrop-blur-md border border-border shadow-xl rounded-full px-4 py-2 text-xs font-bold items-center gap-2 animate-bounce motion-reduce:!animate-none z-20" style={{ animationDuration: '4s' }}>
+                  <CheckCircle2 className="w-4 h-4 text-success" /> AI Verified
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-5 md:pl-16 self-end pb-12">
+                <h3 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">AI Bill Scanning</h3>
+                <p className="text-xl text-muted-foreground leading-relaxed">
+                  Photograph any invoice and Digibill reads the supplier name, amount, and due date in seconds.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 2: Supplier Portal (Text 50%, Demo 50%, Bottom-right glow) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-0 items-center relative reveal opacity-0">
+              <div className="absolute bottom-[-100px] right-[-100px] w-[700px] h-[600px] bg-accent/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+              <div className="col-span-1 md:col-span-6 md:pr-20 self-start pt-12 order-2 md:order-1">
+                <h3 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Supplier Portal</h3>
+                <p className="text-xl text-muted-foreground leading-relaxed">
+                  Give suppliers their own login to view invoices, raise disputes, and acknowledge payments instantly.
+                </p>
+              </div>
+              <div className="col-span-1 md:col-span-6 relative z-10 order-1 md:order-2">
+                <div className="w-full [&>div]:!max-w-[420px] md:translate-x-8 md:rotate-1 md:hover:rotate-0 hover:-translate-y-2 transition-all duration-500 ease-out">
+                  <SupplierFlowDemo />
+                </div>
+                {/* Floating Badge */}
+                <div className="hidden md:flex absolute -left-12 bottom-1/3 bg-background/80 backdrop-blur-md border border-border shadow-xl rounded-full px-4 py-2 text-xs font-bold items-center gap-2 animate-pulse motion-reduce:!animate-none z-20" style={{ animationDuration: '5s' }}>
+                  <Users className="w-4 h-4 text-accent" /> Supplier Online
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 3: Payment Reminders (Demo Compact, Text Wide, Center-left glow) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-0 items-center relative reveal opacity-0">
+              <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[500px] h-[500px] bg-warning/5 rounded-full blur-[100px] pointer-events-none -z-10" />
+              <div className="col-span-1 md:col-span-5 relative z-10">
+                <div className="w-full [&>div]:!max-w-sm md:-translate-y-12 md:hover:-translate-y-16 transition-all duration-700 ease-out">
+                  <ReminderTimeline />
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-7 md:pl-24 self-center">
+                <h3 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Payment Reminders</h3>
+                <p className="text-xl text-muted-foreground leading-relaxed">
+                  Automated WhatsApp and email reminders go out 3 days before a bill is due, with retry logic.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 4: Health Scores (Text Left, Demo Overlaps Text Area, Right glow) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-0 items-center relative reveal opacity-0">
+              <div className="absolute top-1/4 right-0 w-[600px] h-[600px] bg-success/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+              <div className="col-span-1 md:col-span-5 md:pr-8 self-center order-2 md:order-1 relative z-20">
+                <h3 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Health Scores</h3>
+                <p className="text-xl text-muted-foreground leading-relaxed">
+                  Every supplier gets a credit score based on your payment history so you know who is reliable.
+                </p>
+              </div>
+              <div className="col-span-1 md:col-span-7 relative z-10 order-1 md:order-2">
+                <div className="w-full [&>div]:!max-w-[500px] md:scale-105 md:-translate-x-16 md:hover:scale-110 md:hover:-translate-x-20 transition-all duration-700 ease-out">
+                  <HealthScoreCard />
+                </div>
+                {/* Floating Badge */}
+                <div className="hidden md:flex absolute -right-4 top-10 bg-background/80 backdrop-blur-md border border-border shadow-xl rounded-full px-4 py-2 text-xs font-bold items-center gap-2 animate-bounce motion-reduce:!animate-none z-30" style={{ animationDuration: '6s' }}>
+                  <Shield className="w-4 h-4 text-success" /> Health Updated
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 5: Cash Flow Forecast (Demo Extra Large Shifted Up, Text Bottom, Bottom-left glow) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-0 items-center relative reveal opacity-0">
+              <div className="absolute bottom-[-150px] left-[-100px] w-[800px] h-[600px] bg-destructive/5 rounded-full blur-[150px] pointer-events-none -z-10" />
+              <div className="col-span-1 md:col-span-8 relative z-10">
+                <div className="w-full [&>div]:!max-w-[620px] md:-translate-y-16 md:hover:-translate-y-20 hover:shadow-2xl transition-all duration-700 ease-out">
+                  <CashFlowChart />
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-4 md:pl-10 self-end pb-24">
+                <h3 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Cash Flow Forecast</h3>
+                <p className="text-xl text-muted-foreground leading-relaxed">
+                  See money going out over the next 30 and 90 days to plan inventory purchases accurately.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 6: GST Tracking (Text Top, Demo Shifted Down, Center glow) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-0 items-center relative reveal opacity-0">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-accent/5 rounded-full blur-[150px] pointer-events-none -z-10" />
+              <div className="col-span-1 md:col-span-5 md:pr-16 self-start pt-16 order-2 md:order-1">
+                <h3 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">GST Tracking</h3>
+                <p className="text-xl text-muted-foreground leading-relaxed">
+                  Log CGST, SGST, and IGST per line item and export clean GST summaries when filing time comes.
+                </p>
+              </div>
+              <div className="col-span-1 md:col-span-7 relative z-10 order-1 md:order-2">
+                <div className="w-full [&>div]:!max-w-[480px] md:translate-y-12 md:translate-x-12 md:hover:translate-y-8 hover:shadow-2xl transition-all duration-700 ease-out">
+                  <GSTTableDemo />
+                </div>
+                {/* Floating Badge */}
+                <div className="hidden md:flex absolute right-0 bottom-0 bg-background/80 backdrop-blur-md border border-border shadow-xl rounded-full px-4 py-2 text-xs font-bold items-center gap-2 animate-pulse motion-reduce:!animate-none z-20" style={{ animationDuration: '4.5s' }}>
+                  <Receipt className="w-4 h-4 text-accent" /> GST Ready
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Premium Section Transition */}
+      <div className="relative w-full py-32 flex flex-col items-center justify-center overflow-visible reveal opacity-0 -mb-20">
+        <style>{`
+          @keyframes orb-travel-horizontal {
+            0% { left: 5%; transform: translateY(-50%) scale(0); opacity: 0; }
+            10% { left: 10%; transform: translateY(-50%) scale(1); opacity: 1; }
+            80% { left: 85%; transform: translateY(-50%) scale(1); opacity: 1; }
+            90% { left: 95%; transform: translateY(-50%) scale(1.5); opacity: 0; }
+            100% { left: 95%; transform: translateY(-50%) scale(0); opacity: 0; }
+          }
+        `}</style>
+        
+        {/* Soft Radial Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px] pointer-events-none -z-10" />
+        
+        {/* Connector from above */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-[50%] bg-gradient-to-b from-border/50 to-transparent -z-20" />
+
+        {/* Floating Glass Component */}
+        <div className="relative z-10 flex items-center gap-4 sm:gap-6 bg-background/60 backdrop-blur-md border border-border/50 shadow-xl rounded-full px-6 sm:px-8 py-3 sm:py-4">
+           {/* Animated Orb */}
+           <div className="absolute top-1/2 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center motion-reduce:hidden pointer-events-none z-0" style={{ animation: 'orb-travel-horizontal 6s ease-in-out infinite' }}>
+             <div className="w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.8)]" />
+           </div>
+
+           <div className="flex items-center gap-2 relative z-10">
+             <Camera className="w-4 h-4 text-muted-foreground" />
+             <span className="hidden sm:inline text-xs font-bold text-muted-foreground">Scan</span>
+           </div>
+           <ArrowRight className="w-3 h-3 text-muted-foreground/30 relative z-10" />
+           
+           <div className="flex items-center gap-2 relative z-10">
+             <Bot className="w-4 h-4 text-muted-foreground" />
+             <span className="hidden sm:inline text-xs font-bold text-muted-foreground">AI</span>
+           </div>
+           <ArrowRight className="w-3 h-3 text-muted-foreground/30 relative z-10" />
+           
+           <div className="flex items-center gap-2 relative z-10">
+             <Users className="w-4 h-4 text-muted-foreground" />
+             <span className="hidden sm:inline text-xs font-bold text-muted-foreground">Supplier</span>
+           </div>
+           <ArrowRight className="w-3 h-3 text-muted-foreground/30 relative z-10" />
+           
+           <div className="flex items-center gap-2 relative z-10">
+             <CreditCard className="w-4 h-4 text-muted-foreground" />
+             <span className="hidden sm:inline text-xs font-bold text-muted-foreground">Pay</span>
+           </div>
+        </div>
+      </div>
 
       {/* How it Works */}
       <section id="how-it-works" className="py-24 bg-muted/30 border-y border-border relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px]" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-16 reveal opacity-0">How it works</h2>
-          
-          <div className="grid md:grid-cols-3 gap-12 relative reveal opacity-0">
-            <div className="hidden md:block absolute top-12 left-[15%] right-[15%] h-0.5 border-t-2 border-dashed border-border" />
-            
-            {[
-              { icon: Users, title: "Add your suppliers", desc: "Enter supplier name, contact, and email. Invite them to the portal in one click." },
-              { icon: Zap, title: "Log or scan bills", desc: "Manually enter a bill or photograph it. AI fills in the details and matches the supplier automatically." },
-              { icon: CheckCircle2, title: "Track & resolve", desc: "Dashboard shows what's pending, what's overdue, and what disputes need your attention." }
-            ].map((step, i) => (
-              <div key={i} className="relative z-10 flex flex-col items-center">
-                <div className="w-24 h-24 bg-card border-2 border-border rounded-full flex items-center justify-center mb-6 shadow-sm relative group">
-                  <div className="absolute inset-0 bg-primary/10 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300"></div>
-                  <step.icon className="w-10 h-10 text-primary relative z-10" />
-                </div>
-                <h3 className="text-xl font-bold mb-3">{step.title}</h3>
-                <p className="text-muted-foreground max-w-xs">{step.desc}</p>
-              </div>
-            ))}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16 reveal opacity-0">
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">How it works</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              From receiving an invoice to paying your supplier — every step happens in one place.
+            </p>
           </div>
+          
+          <HowItWorksWorkflow />
+
         </div>
       </section>
 
@@ -298,7 +597,7 @@ export function LandingPage() {
 
         <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
           {/* Free Plan */}
-          <div className="bg-card border border-border rounded-2xl p-8 reveal opacity-0">
+          <div className="bg-card border border-border rounded-2xl p-8 reveal opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-primary/50">
             <h3 className="text-2xl font-bold mb-2">Free</h3>
             <p className="text-muted-foreground text-sm mb-6 h-10">For one shop getting started</p>
             <div className="mb-8 flex items-baseline gap-1">
@@ -319,7 +618,7 @@ export function LandingPage() {
           </div>
 
           {/* Pro Plan */}
-          <div className="bg-card border-2 border-primary rounded-2xl p-8 shadow-xl relative lg:scale-105 z-10 reveal opacity-0" style={{ transitionDelay: '0.1s' }}>
+          <div className="bg-card border-2 border-primary rounded-2xl p-8 shadow-xl relative lg:scale-105 z-10 reveal opacity-0 transition-shadow duration-300 hover:shadow-2xl" style={{ transitionDelay: '0.1s' }}>
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase">
               Most Popular
             </div>
@@ -344,7 +643,7 @@ export function LandingPage() {
           </div>
 
           {/* Business Plan */}
-          <div className="bg-card border border-border rounded-2xl p-8 reveal opacity-0" style={{ transitionDelay: '0.2s' }}>
+          <div className="bg-card border border-border rounded-2xl p-8 reveal opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-primary/50" style={{ transitionDelay: '0.2s' }}>
             <h3 className="text-2xl font-bold mb-2">Business</h3>
             <p className="text-muted-foreground text-sm mb-6 h-10">For multi-location businesses</p>
             <div className="mb-8 flex items-baseline gap-1">
@@ -372,6 +671,7 @@ export function LandingPage() {
           <h3 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h3>
           <div className="space-y-4">
             {[
+              { q: "How fast can I start?", a: "You can sign up in seconds using Google Sign-In or your email. Setup takes less than 10 minutes, and no approvals are required." },
               { q: "Is there a free trial for Pro?", a: "Yes — 14 days free on Pro, no credit card required. You can upgrade, downgrade, or cancel anytime from your settings." },
               { q: "Can I import my existing bills?", a: "Yes. You can upload a CSV export from Vyapar, Tally, or any spreadsheet. Our smart import tool maps your fields automatically." },
               { q: "What happens to my data if I cancel?", a: "Your data stays accessible in read-only mode for 30 days after cancellation. You can export everything as JSON or CSV before you leave." },
@@ -395,8 +695,9 @@ export function LandingPage() {
       </section>
 
       {/* CTA Banner */}
-      <section className="border-t border-border bg-gradient-to-br from-primary/10 via-background to-accent/5 py-24 text-center reveal opacity-0">
-        <div className="max-w-3xl mx-auto px-4">
+      <section className="border-t border-border bg-gradient-to-br from-primary/10 via-background to-accent/5 py-24 text-center reveal opacity-0 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/20 rounded-full blur-[100px] pointer-events-none opacity-30 motion-safe:animate-ambient-drift" />
+        <div className="max-w-3xl mx-auto px-4 relative z-10">
           <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-6">Stop losing bills. Start tonight.</h2>
           <p className="text-lg text-muted-foreground mb-8">Free to start. No credit card. Takes 10 minutes to set up your first supplier.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-6">

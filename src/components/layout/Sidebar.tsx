@@ -1,4 +1,4 @@
-import { Home, Users, FileText, BarChart3, Settings, LogOut, Store, ScanLine, TrendingUp, AlertTriangle } from "lucide-react";
+import { Home, Users, FileText, BarChart3, Settings, LogOut, Store, ScanLine, TrendingUp, AlertTriangle, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,7 @@ const menuItems = [
   { id: "disputes", label: "Disputes", icon: AlertTriangle },
   { id: "directory", label: "Find Suppliers", icon: Users },
   { id: "connections-pending", label: "Requests", icon: Store },
+  { id: "queue", label: "Queue Admin", icon: Activity },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

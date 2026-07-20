@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { GoogleLogin } from '@react-oauth/google';
 
 export function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -45,6 +46,20 @@ export function Register() {
       navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (!credentialResponse.credential) return;
+    try {
+      setLoading(true);
+      await googleLogin(credentialResponse.credential);
+      toast.success("Registration successful!");
+      navigate("/");
+    } catch (error: any) {
+      toast.error(error.message || "Google signup failed");
     } finally {
       setLoading(false);
     }
@@ -143,13 +158,30 @@ export function Register() {
                   Creating account...
                 </>
               ) : (
-                "Create Account"
+                "Sign Up"
               )}
             </Button>
           </form>
-          <div className="mt-6 text-center text-base">
+
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error("Google signup failed")}
+            />
+          </div>
+
+          <div className="mt-8 text-center text-sm">
             <span className="text-muted-foreground">Already have an account? </span>
-            <Link to="/login" className="text-primary hover:underline font-semibold">
+            <Link to="/login" className="font-semibold text-primary hover:underline">
               Sign in
             </Link>
           </div>
