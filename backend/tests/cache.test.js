@@ -26,7 +26,7 @@ describe('Phase 1: Cache-Aside Layer', () => {
     // 1. First request (Cache MISS)
     const start1 = Date.now();
     const res1 = await request(app)
-      .get('/api/forecast')
+      .get('/api/analytics/forecast')
       .set('Authorization', `Bearer ${token}`);
     
     expect(res1.status).toBe(200);
@@ -35,7 +35,7 @@ describe('Phase 1: Cache-Aside Layer', () => {
     // 2. Second request (Cache HIT)
     const start2 = Date.now();
     const res2 = await request(app)
-      .get('/api/forecast')
+      .get('/api/analytics/forecast')
       .set('Authorization', `Bearer ${token}`);
     
     expect(res2.status).toBe(200);

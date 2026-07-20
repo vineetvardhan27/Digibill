@@ -9,6 +9,7 @@ beforeAll(async () => {
   const user = new User({
     name: 'Idempotency User',
     email: 'idemp@example.com',
+    passwordHash: 'dummyhash',
     emailVerified: true
   });
   await user.save();
