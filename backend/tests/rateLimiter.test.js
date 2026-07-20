@@ -1,11 +1,10 @@
 import request from 'supertest';
 import app from '../server.js';
-import redisClient from '../config/redis.js';
 
 describe('Phase 2: Rate Limiter Middleware', () => {
   it('should return 429 Too Many Requests after exceeding window limit', async () => {
     const endpoint = '/api/auth/login';
-    const limit = 5; // globalLimiter might be higher, but authLimiter is strict (5 per 15 min)
+    const limit = 10; // authLimiter is configured for 10 attempts per 15 minutes
     
     // Clear the specific rate limit key for auth if needed, or just blast the endpoint
     // We send dummy requests up to the limit
@@ -24,6 +23,6 @@ describe('Phase 2: Rate Limiter Middleware', () => {
       
     expect(rateLimitedRes.status).toBe(429);
     expect(rateLimitedRes.headers).toHaveProperty('retry-after');
-    expect(rateLimitedRes.body.message).toMatch(/Too many requests/i);
+    expect(rateLimitedRes.body.message).toMatch(/Too many authentication attempts/i);
   });
 });

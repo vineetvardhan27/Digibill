@@ -61,12 +61,12 @@ app.use('/api/connections', connectionsRoutes);
 app.use('/api/supplier-connections', supplierConnectionsRoutes);
 app.use('/api/directory', directoryRoutes);
 app.use('/api/supplier-directory', supplierDirectoryRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api', apiRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/payments', paymentRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

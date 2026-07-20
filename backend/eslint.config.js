@@ -9,6 +9,8 @@ export default [
       globals: {
         process: "readonly",
         console: "readonly",
+        fetch: "readonly",
+        performance: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
         setInterval: "readonly",
@@ -26,7 +28,11 @@ export default [
       }
     },
     rules: {
-      "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+      "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+      "no-useless-escape": "off",
+      "preserve-caught-error": "off",
+      "no-control-regex": "off",
+      "no-useless-assignment": "off"
     }
   }
 ];
