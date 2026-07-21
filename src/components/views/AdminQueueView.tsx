@@ -75,8 +75,8 @@ export function AdminQueueView() {
           </button>
         </div>
       ) : loading && !stats ? (
-        {/* Loading Skeletons */}
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          {/* Loading Skeletons */}
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="rounded-xl border bg-card p-6 shadow-sm flex flex-col h-[152px] justify-between">
               <div className="flex justify-between items-start">
@@ -91,8 +91,8 @@ export function AdminQueueView() {
           ))}
         </div>
       ) : stats ? (
-        {/* Statistics Cards */}
         <div className="space-y-8">
+          {/* Statistics Cards */}
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Waiting"
