@@ -8,6 +8,9 @@ import { sendEmail } from '../lib/email.js';
 let twilioClient = null;
 
 async function getTwilioClient() {
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    return null;
+  }
   if (!twilioClient) {
     const twilio = await import('twilio');
     twilioClient = twilio.default(
@@ -116,6 +119,12 @@ async function sendEmailReminder({ emailAddress, supplierName, amount, dueDate, 
 // ─── Send WhatsApp Reminder ─────────────────────────────────────────────────
 async function sendWhatsAppReminder({ whatsappNumber, supplierName, amount, dueDate, billId }) {
   const client = await getTwilioClient();
+  
+  if (!client) {
+    console.warn('⚠️ Twilio variables missing. WhatsApp service disabled. Skipping WhatsApp reminder.');
+    return;
+  }
+
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
   const formattedDate = new Date(dueDate).toLocaleDateString('en-IN', {
     day: 'numeric',

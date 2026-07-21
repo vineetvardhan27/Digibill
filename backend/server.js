@@ -1,6 +1,6 @@
+import 'dotenv/config.js'; // Must be the first import to load env vars before other modules
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import redis from './config/redis.js'; // connects on import — logs ✅ / ❌
 import { globalLimiter } from './middleware/rateLimiter.js';
@@ -21,9 +21,6 @@ import adminRoutes from './routes/admin.js';
 import paymentRoutes from './routes/payments.js';
 import { startReminderWorker } from './jobs/workers/reminderWorker.js';
 import { startNotificationWorker } from './jobs/workers/notificationWorker.js';
-
-// Load environment variables
-dotenv.config();
 
 // Initialize Express app
 const app = express();

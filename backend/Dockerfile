@@ -41,11 +41,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy production node_modules from the deps stage
-COPY --from=deps /app/node_modules ./node_modules
-
 # Copy application source from the build stage
 COPY --from=build /app ./
+
+# Overwrite dev node_modules with production node_modules from the deps stage
+COPY --from=deps /app/node_modules ./node_modules
 
 # If a dist/ folder was produced by the build, it's already included.
 # Remove leftover dev artefacts that slipped through .dockerignore
