@@ -62,22 +62,22 @@ export function AdminQueueView() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Waiting (Pending)"
-            value={stats.counts.waiting}
+            value={stats?.queue?.counts?.waiting || 0}
             icon={<Clock className="h-5 w-5 text-blue-500" />}
           />
           <StatCard
             title="Active (Processing)"
-            value={stats.counts.active}
+            value={stats?.queue?.counts?.active || 0}
             icon={<Activity className="h-5 w-5 text-orange-500" />}
           />
           <StatCard
             title="Completed"
-            value={stats.counts.completed}
+            value={stats?.queue?.counts?.completed || 0}
             icon={<CheckCircle className="h-5 w-5 text-green-500" />}
           />
           <StatCard
             title="Failed"
-            value={stats.counts.failed}
+            value={stats?.queue?.counts?.failed || 0}
             icon={<AlertTriangle className="h-5 w-5 text-red-500" />}
           />
         </div>
